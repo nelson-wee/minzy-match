@@ -3,5 +3,5 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
-  base: '/minzy-match/',   // ← add this line
+  base: '/minzy-match/',
 })
