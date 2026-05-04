@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect, useMemo, createContext, useContext } from "react";
+import React, { useState, useCallback, useRef, useEffect, useMemo, createContext, useContext } from "react";
 
 // ═══════════════════════════════════════════════════════════════════
 // SEASONS  —  each ante maps to a season
@@ -777,43 +777,64 @@ function specialKey(s){
 
 // ═══════════════════════════════════════════════════════════════════
 // GEM SHAPE ICONS  — one distinct silhouette per type index (0–6).
-// Uses React.createElement (not JSX) because these live at module
-// scope where the artifact renderer's transpiler won't process JSX.
+// Stored as plain descriptor objects (no JSX at module scope).
+// GemShape (a normal component) renders them with JSX at call time.
 // ═══════════════════════════════════════════════════════════════════
-const ce = (type, props, ...children) => React.createElement(type, props, ...children);
-
 const GEM_SHAPES = [
   // 0: heart
-  ({c}) => ce("path",{d:"M12 18C12 18 5.5 12.5 5.5 8.5C5.5 6 7.5 4.5 10 5.5L12 7.5L14 5.5C16.5 4.5 18.5 6 18.5 8.5C18.5 12.5 12 18 12 18Z",fill:c,opacity:"0.48"}),
-  // 1: trefoil
-  ({c}) => ce("g",{fill:c,opacity:"0.45"},ce("circle",{cx:"12",cy:"8.5",r:"3.4"}),ce("circle",{cx:"8.2",cy:"14.5",r:"3.4"}),ce("circle",{cx:"15.8",cy:"14.5",r:"3.4"})),
+  {type:"path", d:"M12 18C12 18 5.5 12.5 5.5 8.5C5.5 6 7.5 4.5 10 5.5L12 7.5L14 5.5C16.5 4.5 18.5 6 18.5 8.5C18.5 12.5 12 18 12 18Z", opacity:"0.48"},
+  // 1: trefoil — three circles stored as cx,cy,r tuples
+  {type:"circles", opacity:"0.45", circles:[{cx:"12",cy:"8.5",r:"3.4"},{cx:"8.2",cy:"14.5",r:"3.4"},{cx:"15.8",cy:"14.5",r:"3.4"}]},
   // 2: diamond
-  ({c}) => ce("path",{d:"M12 3.5L20.5 12L12 20.5L3.5 12Z",fill:c,opacity:"0.42"}),
-  // 3: sun with rays
-  ({c}) => ce("g",{fill:c,stroke:c,strokeLinecap:"round",opacity:"0.48"},
-    ce("circle",{cx:"12",cy:"12",r:"3.8"}),
-    ...[0,45,90,135,180,225,270,315].map((deg,i)=>{
-      const rad=deg*Math.PI/180;
-      return ce("line",{key:i,x1:12+5.8*Math.cos(rad),y1:12+5.8*Math.sin(rad),x2:12+7.8*Math.cos(rad),y2:12+7.8*Math.sin(rad),strokeWidth:"1.6"});
-    })),
+  {type:"path", d:"M12 3.5L20.5 12L12 20.5L3.5 12Z", opacity:"0.42"},
+  // 3: sun — centre circle + 8 ray line endpoints
+  {type:"sun",  opacity:"0.48", r:"3.8",
+   rays:[0,45,90,135,180,225,270,315].map(deg=>{
+     const rad=deg*Math.PI/180;
+     return {x1:12+5.8*Math.cos(rad),y1:12+5.8*Math.sin(rad),x2:12+7.8*Math.cos(rad),y2:12+7.8*Math.sin(rad)};
+   })},
   // 4: three bubbles
-  ({c}) => ce("g",{fill:c,opacity:"0.46"},ce("circle",{cx:"9.5",cy:"14.5",r:"3"}),ce("circle",{cx:"14.5",cy:"14.5",r:"3"}),ce("circle",{cx:"12",cy:"9.5",r:"3"})),
+  {type:"circles", opacity:"0.46", circles:[{cx:"9.5",cy:"14.5",r:"3"},{cx:"14.5",cy:"14.5",r:"3"},{cx:"12",cy:"9.5",r:"3"}]},
   // 5: teardrop
-  ({c}) => ce("path",{d:"M12 4.5C12 4.5 6.5 11 6.5 14.5C6.5 17.5 9 20 12 20C15 20 17.5 17.5 17.5 14.5C17.5 11 12 4.5 12 4.5Z",fill:c,opacity:"0.46"}),
+  {type:"path", d:"M12 4.5C12 4.5 6.5 11 6.5 14.5C6.5 17.5 9 20 12 20C15 20 17.5 17.5 17.5 14.5C17.5 11 12 4.5 12 4.5Z", opacity:"0.46"},
   // 6: crescent moon
-  ({c}) => ce("path",{d:"M16 5.5C11.5 5.5 8 9 8 13C8 17 11.5 20.5 16 20.5C13.2 20 11.2 17.5 11.2 14.5C11.2 11.5 13.2 9 16 8.5C17.5 8 18.5 6 16 5.5Z",fill:c,opacity:"0.48"}),
+  {type:"path", d:"M16 5.5C11.5 5.5 8 9 8 13C8 17 11.5 20.5 16 20.5C13.2 20 11.2 17.5 11.2 14.5C11.2 11.5 13.2 9 16 8.5C17.5 8 18.5 6 16 5.5Z", opacity:"0.48"},
 ];
 
 function GemShape({typeIndex, color, gemSize}) {
-  const idx = Math.min(typeIndex, GEM_SHAPES.length - 1);
-  const Shape = GEM_SHAPES[idx];
+  const shape = GEM_SHAPES[Math.min(typeIndex, GEM_SHAPES.length - 1)];
   const s = gemSize * 0.65;
-  return (
-    <svg width={s} height={s} viewBox="0 0 24 24"
-      style={{position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",pointerEvents:"none"}}>
-      <Shape c={color}/>
-    </svg>
-  );
+  const svgStyle = {position:"absolute",top:"50%",left:"50%",transform:"translate(-50%,-50%)",pointerEvents:"none"};
+
+  if (shape.type === "path") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 24 24" style={svgStyle}>
+        <path d={shape.d} fill={color} opacity={shape.opacity}/>
+      </svg>
+    );
+  }
+  if (shape.type === "circles") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 24 24" style={svgStyle}>
+        <g fill={color} opacity={shape.opacity}>
+          {shape.circles.map((c,i) => <circle key={i} cx={c.cx} cy={c.cy} r={c.r}/>)}
+        </g>
+      </svg>
+    );
+  }
+  if (shape.type === "sun") {
+    return (
+      <svg width={s} height={s} viewBox="0 0 24 24" style={svgStyle}>
+        <g fill={color} stroke={color} strokeLinecap="round" opacity={shape.opacity}>
+          <circle cx="12" cy="12" r={shape.r}/>
+          {shape.rays.map((ray,i) => (
+            <line key={i} x1={ray.x1} y1={ray.y1} x2={ray.x2} y2={ray.y2} strokeWidth="1.6"/>
+          ))}
+        </g>
+      </svg>
+    );
+  }
+  return null;
 }
 
 function cottageStripe(size,dir,color,offset){
@@ -1988,6 +2009,25 @@ function App(){
   return <HomeScreen onNewRun={startNewRun} onResume={handleResume} hasActiveRun={false} highScores={highScores} enabledCats={enabledCats} onToggleCat={handleToggleCat}/>;
 }
 
+// Error boundary — catches render errors and shows them instead of a blank screen.
+// Helps diagnose issues during development.
+class ErrorBoundary extends React.Component {
+  constructor(props){ super(props); this.state={error:null}; }
+  static getDerivedStateFromError(error){ return {error}; }
+  render(){
+    if(this.state.error){
+      return(
+        <div style={{padding:32,fontFamily:"monospace",fontSize:13,color:"#c83848",background:"#fcf8ee",minHeight:"100vh",whiteSpace:"pre-wrap",wordBreak:"break-word"}}>
+          <div style={{fontWeight:700,fontSize:16,marginBottom:12}}>⚠️ Render Error</div>
+          <div>{String(this.state.error)}</div>
+          {this.state.error?.stack&&<div style={{marginTop:12,opacity:0.6,fontSize:11}}>{this.state.error.stack}</div>}
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default function AppRoot(){
-  return <TooltipProvider><App/></TooltipProvider>;
+  return <ErrorBoundary><TooltipProvider><App/></TooltipProvider></ErrorBoundary>;
 }
