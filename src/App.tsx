@@ -188,16 +188,17 @@ const ANTE_LABELS = {1:"Ante I",2:"Ante II",3:"Ante III",4:"Finale"};
 const OBS={FROSTED:"frosted",JELLY:"jelly",STONE:"stone",LOCKED:"locked",CHOCOLATE:"chocolate"};
 
 const LEVEL_OBSTACLE_CONFIGS=[
-  {},                                               // L1
-  {},                                               // L2
-  {frosted:4},                                      // L3 boss
-  {jelly:6},                                        // L4
-  {frosted:4,jelly:4},                              // L5
-  {stone:4,jelly:6},                                // L6 boss
-  {stone:3,jelly:4,frosted:4},                      // L7
-  {stone:2,jelly:6,frosted:4},                      // L8
-  {chocolate:2,stone:4,jelly:6},                    // L9 boss
-  {chocolate:2,stone:4,jelly:8,frosted:4,locked:2}, // L10 finale
+  {},                          // L1
+  {},                          // L2
+  {frosted:4},                 // L3 boss
+  {frosted:4},                 // L4
+  {frosted:4},                 // L5
+  {stone:4,frosted:2},         // L6 boss
+  {stone:3,frosted:4},         // L7
+  {stone:4,frosted:4},         // L8
+  {stone:4,frosted:4},         // L9 boss
+  {stone:4,frosted:4,locked:2},// L10 finale
+  // Jelly and chocolate reserved for future release — see devlog v0.1
 ];
 
 // ═══════════════════════════════════════════════════════════════════
@@ -208,8 +209,9 @@ const BOON_POOL=[
   {id:"b2",name:"Extra Time",   icon:"🕰️",type:"boon",effect:"Next level: +5 bonus moves."},
   {id:"b3",name:"Colour Focus", icon:"🎨",type:"boon",effect:"Next level: one fewer colour on the board."},
   {id:"b4",name:"Bomb Drop",    icon:"💣",type:"boon",effect:"Next level: begin with a colour bomb pre-placed in the centre."},
+  // {id:"b5",name:"Frost Thaw",   icon:"🌤️",type:"boon",effect:"Next level: all frosted tiles begin pre-cracked (one hit to clear)."}, // keep — frosted still in v0.1
+  // {id:"b6",name:"Jelly Feast",  icon:"🍮",type:"boon",effect:"Next level: clearing jelly tiles scores ×3 bonus."}, // reserved — jelly not in v0.1
   {id:"b5",name:"Frost Thaw",   icon:"🌤️",type:"boon",effect:"Next level: all frosted tiles begin pre-cracked (one hit to clear)."},
-  {id:"b6",name:"Jelly Feast",  icon:"🍮",type:"boon",effect:"Next level: clearing jelly tiles scores ×3 bonus."},
   {id:"b7",name:"Swept Clean",  icon:"🧹",type:"boon",effect:"Next level: no obstacles placed on the board."},
 ];
 
@@ -260,9 +262,9 @@ const RELIC_POOL = [
   {id:"q4",name:"Flow State",     cat:"sequential", rar:"rare",     icon:"🌊", effect:"5 consecutive cascade-triggering moves: spawn a colour bomb."},
   // Obstacle relics — active
   {id:"o1",name:"Frost Breaker",  cat:"obstacle", rar:"common",   icon:"🧊", effect:"Clearing a frosted tile: spawn a striped candy directly above it."},
-  {id:"o2",name:"Choc Converter", cat:"obstacle", rar:"uncommon", icon:"🍫", effect:"Removing a chocolate tile converts it to your rarest on-board colour."},
+  // {id:"o2",name:"Choc Converter", cat:"obstacle", rar:"uncommon", icon:"🍫", effect:"Removing a chocolate tile converts it to your rarest on-board colour."}, // reserved — chocolate not in v0.1
   {id:"o3",name:"Stone Splitter", cat:"obstacle", rar:"uncommon", icon:"🪨", effect:"Wrapped explosions also permanently remove adjacent stone tiles."},
-  {id:"o4",name:"Jelly Bonus",    cat:"obstacle", rar:"common",   icon:"🟣", effect:"Each jelly cleared: +80 bonus score."},
+  // {id:"o4",name:"Jelly Bonus",    cat:"obstacle", rar:"common",   icon:"🟣", effect:"Each jelly cleared: +80 bonus score."}, // reserved — jelly not in v0.1
 ];
 
 const RARITY_STYLE = {
@@ -478,7 +480,10 @@ function getQuotaColor(seed,levelIndex,numColors){
 // ═══════════════════════════════════════════════════════════════════
 // MATCH-3 ENGINE
 // ═══════════════════════════════════════════════════════════════════
-const MAX_MOVES=30, CELL=42;
+const MAX_MOVES=30;
+// cell size is computed dynamically in GameScreen based on viewport width.
+// Kept here as a fallback reference only (not used at runtime).
+const CELL_DEFAULT=42;
 let _uid=0;
 const newUid=()=>(++_uid).toString(36);
 const rngN=n=>Math.floor(Math.random()*n);
@@ -684,13 +689,15 @@ function placeObstacles(grid,levelIndex,seed,skipObstacles=false){
   for(let i=0;i<(cfg.stone||0);i++){const p=pick(stoneCands);if(p){const[r,c]=p;g[r][c]=makeStoneCell();}}
   const frostedCands=[];for(let r=1;r<ROWS-1;r++)for(let c=2;c<COLS-2;c++)frostedCands.push([r,c]);
   for(let i=0;i<(cfg.frosted||0);i++){const p=pick(frostedCands);if(p){const[r,c]=p;g[r][c]={...g[r][c],frosted:2};}}
-  const jellyCands=[];for(let r=ROWS-3;r<ROWS;r++)for(let c=0;c<COLS;c++)jellyCands.push([r,c]);
-  for(let r=0;r<ROWS-3;r++)for(let c=0;c<COLS;c++)jellyCands.push([r,c]);
-  for(let i=0;i<(cfg.jelly||0);i++){const p=pick(jellyCands);if(p){const[r,c]=p;g[r][c]={...g[r][c],jelly:true};}}
-  const cornerOrder=[[0,0],[0,COLS-1],[ROWS-1,0],[ROWS-1,COLS-1]];
-  for(let i=0;i<Math.min(cfg.chocolate||0,4);i++){
-    const[r,c]=cornerOrder[i];if(!used.has(`${r},${c}`)){g[r][c]=makeChocolateCell();used.add(`${r},${c}`);}
-  }
+  // Jelly placement — reserved for future release (v0.2+)
+  // const jellyCands=[];for(let r=ROWS-3;r<ROWS;r++)for(let c=0;c<COLS;c++)jellyCands.push([r,c]);
+  // for(let r=0;r<ROWS-3;r++)for(let c=0;c<COLS;c++)jellyCands.push([r,c]);
+  // for(let i=0;i<(cfg.jelly||0);i++){const p=pick(jellyCands);if(p){const[r,c]=p;g[r][c]={...g[r][c],jelly:true};}}
+  // Chocolate placement — reserved for future release (v0.2+)
+  // const cornerOrder=[[0,0],[0,COLS-1],[ROWS-1,0],[ROWS-1,COLS-1]];
+  // for(let i=0;i<Math.min(cfg.chocolate||0,4);i++){
+  //   const[r,c]=cornerOrder[i];if(!used.has(`${r},${c}`)){g[r][c]=makeChocolateCell();used.add(`${r},${c}`);}
+  // }
   const lockCands=[];for(let r=3;r<5;r++)for(let c=2;c<6;c++)lockCands.push([r,c]);
   const lockSpecials=[SPECIAL.STRIPED_H,SPECIAL.WRAPPED,SPECIAL.STRIPED_V];
   for(let i=0;i<(cfg.locked||0);i++){const p=pick(lockCands);if(p){const[r,c]=p;g[r][c]={...g[r][c],special:lockSpecials[i%3],locked:true};}}
@@ -981,6 +988,24 @@ function CottageGem({typeIndex, season, size=38, special=null, selected=false}){
 
 
 // ═══════════════════════════════════════════════════════════════════
+// VIEWPORT HOOK — returns live window dimensions, updates on resize.
+// ═══════════════════════════════════════════════════════════════════
+function useViewport() {
+  const[size,setSize]=useState(()=>({vw:window.innerWidth,vh:window.innerHeight}));
+  useEffect(()=>{
+    const fn=()=>setSize({vw:window.innerWidth,vh:window.innerHeight});
+    window.addEventListener('resize',fn);
+    return ()=>window.removeEventListener('resize',fn);
+  },[]);
+  return size;
+}
+
+// Compute board cell size from viewport width.
+// 20px padding each side, 8px board frame → board fills remaining width.
+// Clamped: max 46 (tablet), min 30 (tiny phone).
+function computeCell(vw){ return Math.min(46,Math.max(30,Math.floor((vw-40)/COLS))); }
+
+// ═══════════════════════════════════════════════════════════════════
 // TOOLTIP SYSTEM — hover (desktop) + 400ms long-press (mobile)
 // One TooltipProvider at the AppRoot level renders a single floating
 // card; RelicBadge instances anywhere in the tree can trigger it.
@@ -1198,6 +1223,9 @@ function HomeScreen({onNewRun,onResume,hasActiveRun,highScores,runSeed,enabledCa
 // RUN MAP SCREEN
 // ═══════════════════════════════════════════════════════════════════
 function RunMapScreen({run,onPlay,onHome}){
+  const{vw,vh}=useViewport();
+  const isSmall=vw<375;        // iPhone SE and similar
+  const maxW=Math.min(vw-24,420);
   const currentIdx=run.levelResults.length;
   const nextDef=LEVEL_DEFS[currentIdx];
   const mapSeason=nextDef?getSeason(nextDef.ante):"spring";
@@ -1222,14 +1250,14 @@ function RunMapScreen({run,onPlay,onHome}){
       color:ch.ink,userSelect:"none",WebkitUserSelect:"none",position:"relative",overflow:"hidden"}}>
       <SeasonDots ch={ch}/>
 
-      <div style={{width:"100%",maxWidth:380,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,position:"relative",zIndex:1}}>
+      <div style={{width:"100%",maxWidth:maxW,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,position:"relative",zIndex:1}}>
         <button onClick={onHome} style={{background:"transparent",border:"none",color:ch.inkSoft,fontSize:13,cursor:"pointer",fontFamily:FF_SANS,fontWeight:600}}>← Home</button>
         <Title text="Your Run" ch={ch} size={20}/>
         <div style={{fontSize:12,fontFamily:"monospace",background:ch.pillBg,border:`1px solid ${ch.frame}`,padding:"3px 10px",borderRadius:20,letterSpacing:2,color:ch.ink}}>{run.seed}</div>
       </div>
 
       {/* Score summary */}
-      <div style={{width:"100%",maxWidth:380,display:"flex",gap:12,marginBottom:12,position:"relative",zIndex:1}}>
+      <div style={{width:"100%",maxWidth:maxW,display:"flex",gap:12,marginBottom:12,position:"relative",zIndex:1}}>
         <Card ch={ch} style={{flex:1,padding:"10px 14px",textAlign:"center"}}>
           <div style={{fontSize:10,color:ch.inkSoft,letterSpacing:1,textTransform:"uppercase",marginBottom:2}}>Total Score</div>
           <div style={{fontFamily:FF_SERIF,fontSize:20,fontWeight:600,color:ch.starStroke}}>{totalScore.toLocaleString()}</div>
@@ -1242,7 +1270,7 @@ function RunMapScreen({run,onPlay,onHome}){
 
       {/* Pending boon banner */}
       {run.pendingBoon&&(
-        <div style={{width:"100%",maxWidth:380,marginBottom:10,position:"relative",zIndex:1}}>
+        <div style={{width:"100%",maxWidth:maxW,marginBottom:10,position:"relative",zIndex:1}}>
           <Card ch={ch} style={{padding:"10px 14px",
             border:`1.5px solid ${ch.starFill}`,
             boxShadow:`0 0 10px ${ch.starFill}44`}}>
@@ -1259,7 +1287,7 @@ function RunMapScreen({run,onPlay,onHome}){
       )}
 
       {/* Level list */}
-      <div style={{width:"100%",maxWidth:380,display:"flex",flexDirection:"column",gap:8,overflowY:"auto",maxHeight:"calc(100vh - 300px)",paddingBottom:4,position:"relative",zIndex:1}}>
+      <div style={{width:"100%",maxWidth:maxW,display:"flex",flexDirection:"column",gap:8,overflowY:"auto",maxHeight:`calc(${vh}px - 280px)`,paddingBottom:4,position:"relative",zIndex:1}}>
         {anteGroups.map((levels,anteI)=>{
           const ante=anteI+1;
           const s=SEASONS[getSeason(ante)];
@@ -1275,33 +1303,33 @@ function RunMapScreen({run,onPlay,onHome}){
                 const cfg=LEVEL_OBSTACLE_CONFIGS[idx]??{};
                 const obsIcons=[
                   cfg.frosted&&{icon:"❄",tip:"Frosted"},
-                  cfg.jelly&&{icon:"🟣",tip:"Jelly"},
+                  // cfg.jelly&&{icon:"🟣",tip:"Jelly"},   // v0.2+
                   cfg.stone&&{icon:"🪨",tip:"Stone"},
-                  cfg.chocolate&&{icon:"🍫",tip:"Chocolate"},
+                  // cfg.chocolate&&{icon:"🍫",tip:"Chocolate"}, // v0.2+
                   cfg.locked&&{icon:"🔒",tip:"Locked"},
                 ].filter(Boolean);
                 return(
                   <Card key={def.level} ch={{boardTop:lch.boardTop,boardBot:lch.boardBot,frame:lch.frame}} style={{
-                    padding:"10px 14px",opacity:isFuture?0.5:1,
+                    padding:isSmall?"7px 10px":"10px 14px",opacity:isFuture?0.5:1,
                     border:isCurrent?`2px solid ${lch.accent}`:undefined,
                     boxShadow:isCurrent?`0 0 12px ${lch.accent}44, inset 1px 0 rgba(255,255,255,0.7), 0 2px 8px rgba(80,60,40,0.12)`:undefined,
                   }}>
-                    <div style={{display:"flex",alignItems:"center",gap:10}}>
-                      <div style={{fontSize:18,width:24,textAlign:"center"}}>{def.type==="boss"?"👑":def.type==="finale"?"🏆":isCurrent?"▶":passed?"✓":result?"✗":"○"}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:isSmall?6:10}}>
+                      <div style={{fontSize:isSmall?14:18,width:20,textAlign:"center"}}>{def.type==="boss"?"👑":def.type==="finale"?"🏆":isCurrent?"▶":passed?"✓":result?"✗":"○"}</div>
                       <div style={{flex:1}}>
-                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
-                          <span style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:14,color:lch.ink}}>Level {def.level}</span>
-                          {def.type==="boss"&&<span style={{fontSize:9,background:`${lch.starFill}55`,color:lch.starStroke,padding:"1px 6px",borderRadius:8,fontWeight:700}}>BOSS</span>}
-                          {def.type==="finale"&&<span style={{fontSize:9,background:`${lch.accent}22`,color:lch.accent,padding:"1px 6px",borderRadius:8,fontWeight:700}}>FINALE</span>}
-                          <span style={{fontSize:10,color:lch.inkSoft}}>{def.colors}c</span>
-                          {obsIcons.length>0&&<span style={{fontSize:11,letterSpacing:1}}>{obsIcons.map(o=>o.icon).join("")}</span>}
+                        <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:isSmall?1:2}}>
+                          <span style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:isSmall?12:14,color:lch.ink}}>Level {def.level}</span>
+                          {def.type==="boss"&&<span style={{fontSize:9,background:`${lch.starFill}55`,color:lch.starStroke,padding:"1px 5px",borderRadius:8,fontWeight:700}}>BOSS</span>}
+                          {def.type==="finale"&&<span style={{fontSize:9,background:`${lch.accent}22`,color:lch.accent,padding:"1px 5px",borderRadius:8,fontWeight:700}}>FINALE</span>}
+                          <span style={{fontSize:9,color:lch.inkSoft}}>{def.colors}c</span>
+                          {obsIcons.length>0&&<span style={{fontSize:10,letterSpacing:1}}>{obsIcons.map(o=>o.icon).join("")}</span>}
                         </div>
-                        <div style={{fontSize:12,color:lch.inkSoft}}>{objLabel(def)}</div>
-                        {def.modifier&&<div style={{fontSize:11,color:lch.accent,marginTop:2}}>{MODIFIER_INFO[def.modifier]?.icon} {MODIFIER_INFO[def.modifier]?.label}</div>}
+                        <div style={{fontSize:isSmall?10:12,color:lch.inkSoft}}>{objLabel(def)}</div>
+                        {!isSmall&&def.modifier&&<div style={{fontSize:11,color:lch.accent,marginTop:2}}>{MODIFIER_INFO[def.modifier]?.icon} {MODIFIER_INFO[def.modifier]?.label}</div>}
                       </div>
                       {result&&<div style={{textAlign:"right"}}>
-                        <div style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:14,color:passed?"#6a994f":"#cd6a5e"}}>{result.score.toLocaleString()}</div>
-                        <div style={{fontSize:10,color:lch.inkSoft}}>{result.movesRemaining}mv left</div>
+                        <div style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:isSmall?12:14,color:passed?"#6a994f":"#cd6a5e"}}>{result.score.toLocaleString()}</div>
+                        <div style={{fontSize:9,color:lch.inkSoft}}>{result.movesRemaining}mv</div>
                       </div>}
                     </div>
                   </Card>
@@ -1313,7 +1341,7 @@ function RunMapScreen({run,onPlay,onHome}){
       </div>
 
       {run.relics.length>0&&(
-        <div style={{width:"100%",maxWidth:380,marginTop:12,position:"relative",zIndex:1}}>
+        <div style={{width:"100%",maxWidth:maxW,marginTop:12,position:"relative",zIndex:1}}>
           <div style={{fontSize:10,color:ch.inkSoft,letterSpacing:1.5,marginBottom:6,textTransform:"uppercase",fontWeight:700}}>Relics Held</div>
           <div style={{display:"flex",flexWrap:"wrap",gap:6}}>{run.relics.map(r=><RelicBadge key={r.id} relic={r} ch={ch}/>)}</div>
         </div>
@@ -1460,6 +1488,8 @@ function RunCompleteScreen({run,onHome}){
 // GAME SCREEN
 // ═══════════════════════════════════════════════════════════════════
 function GameScreen({levelDef,run,onComplete}){
+  const{vw,vh}=useViewport();
+  const cell=computeCell(vw); // dynamic cell size for this device
   const levelIdx=run.levelResults.length;
   const boon=run.pendingBoon??null;
   const season=getSeason(levelDef.ante);
@@ -1468,7 +1498,7 @@ function GameScreen({levelDef,run,onComplete}){
   // Boon-modified parameters
   const numColors=Math.max(4,levelDef.colors-(boon?.id==="b3"?1:0));
   const maxMovesBase=MAX_MOVES+(boon?.id==="b2"?5:0);
-  const jellyFeastActive=boon?.id==="b6";
+  const jellyFeastActive=false; // reserved — jelly not in v0.1
 
   const objective={
     ...levelDef.objective,
@@ -1670,11 +1700,8 @@ function GameScreen({levelDef,run,onComplete}){
     }
     if(totalChoco>0&&ctx.getChocoConverterColor(gridRef.current)!=null)oRelicEvents.push("🍫 Choc Converter!");
 
-    // Chocolate spreading — once after all cascade steps resolve
-    if(steps.length>0){
-      const postSpread=spreadChocolate(gridRef.current,allMatched);
-      setGrid(postSpread);
-    }
+    // Chocolate spreading — reserved for v0.2+
+    // if(steps.length>0){const postSpread=spreadChocolate(gridRef.current,allMatched);setGrid(postSpread);}
 
     if([...allRelicEvents,...oRelicEvents].length>0)showRelicMsg([...new Set([...allRelicEvents,...oRelicEvents])]);
     if(objective.type==="quota")setQuotaProgress(newQuota);
@@ -1773,16 +1800,18 @@ function GameScreen({levelDef,run,onComplete}){
     }
   };
 
-  const BW=COLS*CELL+8,BH=ROWS*CELL+8;
+  const BW=COLS*cell+8,BH=ROWS*cell+8;
+
+  const hPad=Math.max(4,Math.floor((vw-BW)/2)); // centre board with minimal side padding
 
   return(
     <div style={{fontFamily:FF_SANS,background:ch.pageWash,minHeight:"100vh",
-      display:"flex",flexDirection:"column",alignItems:"center",padding:"14px 10px 24px",
+      display:"flex",flexDirection:"column",alignItems:"center",padding:`${Math.min(14,Math.floor(vh*0.016))}px ${hPad}px 16px`,
       color:ch.ink,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",position:"relative"}}>
       <SeasonDots ch={ch}/>
 
       {/* Level header */}
-      <div style={{width:BW,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,position:"relative",zIndex:1}}>
+      <div style={{width:BW,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,position:"relative",zIndex:1}}>
         <div style={{fontFamily:FF_SERIF,fontSize:13,fontWeight:600,fontStyle:"italic",color:ch.ink}}>
           {s.motif} {s.label} · Level {levelDef.level}
         </div>
@@ -1817,7 +1846,7 @@ function GameScreen({levelDef,run,onComplete}){
           const isJelly=cell?.jelly&&!popping.has(`${r},${c}`);
           return(
             <div key={`bg-${r}-${c}`} style={{
-              position:"absolute",left:c*CELL+4,top:r*CELL+4,width:CELL-2,height:CELL-2,borderRadius:8,
+              position:"absolute",left:c*cell+4,top:r*cell+4,width:cell-2,height:cell-2,borderRadius:8,
               background:isJelly?`linear-gradient(180deg,rgba(160,80,200,0.22),rgba(120,50,170,0.14))`:(r+c)%2===0?`${ch.frame}22`:`${ch.frame}0e`,
               border:isJelly?`1.5px solid rgba(180,100,220,0.55)`:hl?hl.border:"1px solid transparent",
               boxShadow:hl?hl.shadow:"none",
@@ -1831,19 +1860,19 @@ function GameScreen({levelDef,run,onComplete}){
           if(!cell)return null;
           const key=`${r},${c}`,isPop=popping.has(key),isSel=selected?.r===r&&selected?.c===c;
 
-          if(cell.stone)return <div key={cell.id} style={{position:"absolute",left:c*CELL+4,top:r*CELL+4,width:CELL-4,height:CELL-4,transition:"opacity 0.28s",opacity:isPop?0:1}}><StoneCell size={CELL-4} ch={ch}/></div>;
+          if(cell.stone)return <div key={cell.id} style={{position:"absolute",left:c*cell+4,top:r*cell+4,width:cell-4,height:cell-4,transition:"opacity 0.28s",opacity:isPop?0:1}}><StoneCell size={cell-4} ch={ch}/></div>;
 
-          if(cell.chocolate)return <div key={cell.id} style={{position:"absolute",left:c*CELL+4,top:r*CELL+4,width:CELL-4,height:CELL-4,transition:"transform 0.22s,opacity 0.28s",transform:isPop?"scale(0) rotate(20deg)":"scale(1)",opacity:isPop?0:1}}><ChocolateCell size={CELL-4}/></div>;
+          if(cell.chocolate)return <div key={cell.id} style={{position:"absolute",left:c*cell+4,top:r*cell+4,width:cell-4,height:cell-4,transition:"transform 0.22s,opacity 0.28s",transform:isPop?"scale(0) rotate(20deg)":"scale(1)",opacity:isPop?0:1}}><ChocolateCell size={cell-4}/></div>;
 
           return(
-            <div key={cell.id} style={{position:"absolute",left:c*CELL+4,top:r*CELL+4,width:CELL-4,height:CELL-4,
+            <div key={cell.id} style={{position:"absolute",left:c*cell+4,top:r*cell+4,width:cell-4,height:cell-4,
               transition:"transform 0.22s cubic-bezier(0.34,1.56,0.64,1),opacity 0.28s ease",
               transform:isPop?"scale(0) rotate(30deg)":isSel?"scale(1.15)":"scale(1)",
               opacity:isPop?0:1,zIndex:isSel?20:1,cursor:cell.frosted===2||cell.stone?"default":"pointer"}}
               onClick={()=>handleTap(r,c)} onTouchStart={e=>onTouchStart(e,r,c)} onTouchEnd={e=>onTouchEnd(e,r,c)}>
-              <CottageGem typeIndex={cell.type} season={season} size={CELL-4} special={cell.special} selected={isSel&&cell.frosted!==2}/>
-              {cell.frosted&&<FrostedOverlay health={cell.frosted} size={CELL-4}/>}
-              {cell.locked&&<LockedOverlay size={CELL-4}/>}
+              <CottageGem typeIndex={cell.type} season={season} size={cell-4} special={cell.special} selected={isSel&&cell.frosted!==2}/>
+              {cell.frosted&&<FrostedOverlay health={cell.frosted} size={cell-4}/>}
+              {cell.locked&&<LockedOverlay size={cell-4}/>}
             </div>
           );
         }))}
@@ -1901,7 +1930,7 @@ function GameScreen({levelDef,run,onComplete}){
       {(()=>{
         const obsOnBoard=grid.some(row=>row.some(c=>c?.stone||c?.chocolate||c?.frosted||c?.jelly||c?.locked));
         if(!obsOnBoard)return null;
-        const items=[["❄","frozen"],["🟣","jelly"],["🪨","stone"],["🍫","choc"],["🔒","locked"]];
+        const items=[["❄","frozen"],["🪨","stone"],["🔒","locked"]]; // jelly+choc reserved v0.2+
         return(
           <div style={{marginTop:3,display:"flex",flexWrap:"wrap",justifyContent:"center",gap:"3px 12px",maxWidth:BW,position:"relative",zIndex:1}}>
             {items.map(([icon,label])=>(
