@@ -37,12 +37,12 @@ const SEASONS = {
     label:"Summer", motif:"☀",
     chapter:"Orchard",
     candies:[
-      {id:"rose",   name:"Watermelon",  base:"#ec8a90", deep:"#b85258", light:"#f5b9bd"},
-      {id:"sage",   name:"Meadow",      base:"#9bc77e", deep:"#6a994f", light:"#c2dfae"},
-      {id:"lav",    name:"Hydrangea",   base:"#a6b4e6", deep:"#7282be", light:"#cbd4ef"},
-      {id:"butter", name:"Sunflower",   base:"#f3c84f", deep:"#c89a25", light:"#f8dc8c"},
-      {id:"sky",    name:"Pool",        base:"#7ec5e4", deep:"#4a93b8", light:"#abdcef"},
-      {id:"peach",  name:"Sunset",      base:"#f3a26e", deep:"#c97338", light:"#f8c6a0"},
+      {id:"rose",   name:"Cherry Blossom", base:"#ec8a90", deep:"#b85258", light:"#f5b9bd"},
+      {id:"sage",   name:"New Sage",       base:"#9bc77e", deep:"#6a994f", light:"#c2dfae"},
+      {id:"lav",    name:"Wisteria",       base:"#a6b4e6", deep:"#7282be", light:"#cbd4ef"},
+      {id:"butter", name:"Daffodil",       base:"#f3c84f", deep:"#c89a25", light:"#f8dc8c"},
+      {id:"sky",    name:"Robin's Egg",    base:"#7ec5e4", deep:"#4a93b8", light:"#abdcef"},
+      {id:"peach",  name:"Apricot",        base:"#f3a26e", deep:"#c97338", light:"#f8c6a0"},
       {id:"teal",   name:"Turquoise",   base:"#68bab0", deep:"#3e8878", light:"#96d2c8"},
     ],
     chrome:{
@@ -64,12 +64,12 @@ const SEASONS = {
     label:"Autumn", motif:"🍂",
     chapter:"Harvest",
     candies:[
-      {id:"rose",   name:"Crabapple",   base:"#c83848", deep:"#882030", light:"#e49090"},
-      {id:"sage",   name:"Lichen",      base:"#86a248", deep:"#567030", light:"#b4c880"},
-      {id:"lav",    name:"Heather",     base:"#9060b0", deep:"#603880", light:"#c098d4"},
-      {id:"butter", name:"Pumpkin",     base:"#d88828", deep:"#9c5a08", light:"#eab870"},
-      {id:"sky",    name:"Slate Rain",  base:"#4888a8", deep:"#306080", light:"#88bcd4"},
-      {id:"peach",  name:"Goldenrod",   base:"#c0b010", deep:"#887808", light:"#dcd060"},
+      {id:"rose",   name:"Cherry Blossom", base:"#c83848", deep:"#882030", light:"#e49090"},
+      {id:"sage",   name:"New Sage",       base:"#86a248", deep:"#567030", light:"#b4c880"},
+      {id:"lav",    name:"Wisteria",       base:"#9060b0", deep:"#603880", light:"#c098d4"},
+      {id:"butter", name:"Daffodil",       base:"#d88828", deep:"#9c5a08", light:"#eab870"},
+      {id:"sky",    name:"Robin's Egg",    base:"#4888a8", deep:"#306080", light:"#88bcd4"},
+      {id:"peach",  name:"Apricot",        base:"#c0b010", deep:"#887808", light:"#dcd060"},
       {id:"plum",   name:"Elderberry",  base:"#6830a8", deep:"#441878", light:"#a070cc"},
     ],
     chrome:{
@@ -91,12 +91,12 @@ const SEASONS = {
     label:"Winter", motif:"❄",
     chapter:"Hollow",
     candies:[
-      {id:"rose",   name:"Frostberry",  base:"#c89098", deep:"#886068", light:"#e4b8c0"},
-      {id:"sage",   name:"Pine",        base:"#6a9880", deep:"#3e6858", light:"#9ac4a8"},
-      {id:"lav",    name:"Ice Iris",    base:"#8888cc", deep:"#5050a0", light:"#b8b8e4"},
-      {id:"butter", name:"Candlelight", base:"#d4c068", deep:"#9a8830", light:"#e8d898"},
-      {id:"sky",    name:"Glacier",     base:"#68a8c4", deep:"#3e7890", light:"#9ccce0"},
-      {id:"peach",  name:"Spiced Pear", base:"#c87860", deep:"#906040", light:"#e4a888"},
+      {id:"rose",   name:"Cherry Blossom", base:"#c89098", deep:"#886068", light:"#e4b8c0"},
+      {id:"sage",   name:"New Sage",       base:"#6a9880", deep:"#3e6858", light:"#9ac4a8"},
+      {id:"lav",    name:"Wisteria",       base:"#8888cc", deep:"#5050a0", light:"#b8b8e4"},
+      {id:"butter", name:"Daffodil",       base:"#d4c068", deep:"#9a8830", light:"#e8d898"},
+      {id:"sky",    name:"Robin's Egg",    base:"#68a8c4", deep:"#3e7890", light:"#9ccce0"},
+      {id:"peach",  name:"Apricot",        base:"#c87860", deep:"#906040", light:"#e4a888"},
       {id:"moon",   name:"Moonstone",   base:"#b89040", deep:"#7a6020", light:"#d8b870"},
     ],
     chrome:{
@@ -201,7 +201,7 @@ const LEVEL_OBSTACLE_CONFIGS=[
 ];
 
 // ═══════════════════════════════════════════════════════════════════
-// BOON POOL  — one-level items  (b6 Jelly Feast retired with Jelly)
+// BOON POOL  — one-level items
 // ═══════════════════════════════════════════════════════════════════
 const BOON_POOL=[
   {id:"b1",name:"Head Start",   icon:"✨",type:"boon",effect:"Begin next level with 2 random specials pre-placed on the board."},
@@ -234,21 +234,22 @@ const RELIC_POOL = [
   {id:"c4",name:"Avalanche",      cat:"cascade",    rar:"rare",     icon:"🏔️", effect:"First cascade of each level: score ×3."},
   // Special
   {id:"s1",name:"Power Stripe",   cat:"special",    rar:"common",   icon:"↔️", effect:"Striped candy clears an extra adjacent row or column."},
-  {id:"s2",name:"Blast Radius",   cat:"special",    rar:"common",   icon:"💥", effect:"Wrapped candy burst expands to 5×5."},
+  {id:"s2",name:"Blast Radius",   cat:"special",    rar:"uncommon", icon:"💥", effect:"Wrapped candy burst expands to 5×5."},
   {id:"s3",name:"Lucky 4",        cat:"special",    rar:"uncommon", icon:"🍀", effect:"Match-4 striped: 30% chance to upgrade to wrapped."},
   {id:"s4",name:"Grand Finale",   cat:"special",    rar:"rare",     icon:"🎆", effect:"Activating a colour bomb also fires the nearest other special."},
   // Colour
-  {id:"col1",name:"Rosepetal",    cat:"color",      rar:"common",   icon:"🌸", effect:"Each rose cleared scores +8 bonus."},
+  {id:"col1",name:"Rosepetal",    cat:"color",      rar:"common",   icon:"🌸", effect:"Each rose cleared scores +20 bonus."},
   {id:"col2",name:"Blossom Chain",cat:"color",      rar:"uncommon", icon:"🌺", effect:"Match-4+ rose run: spawn a striped rose nearby."},
   {id:"col3",name:"Butter Glaze", cat:"color",      rar:"common",   icon:"🧈", effect:"Each butter cleared: one extra butter added to the top refill."},
-  {id:"col4",name:"Petal Merge",  cat:"color",      rar:"uncommon", icon:"👁️", effect:"Rose and sage count as the same colour for matching."},
+  {id:"col4",name:"Petal Merge",  cat:"color",      rar:"rare",     icon:"👁️", effect:"Rose and sage count as the same colour for matching."},
+  {id:"col5",name:"Sunripened",   cat:"color",      rar:"rare",     icon:"🌾", effect:"Apricot and daffodil count as the same colour for matching."},
   // Economy
   {id:"e1",name:"Thrifty",        cat:"economy",    rar:"common",   icon:"🎀", effect:"End level with 5+ moves remaining: guaranteed bonus draft pick."},
   {id:"e2",name:"Surplus",        cat:"economy",    rar:"common",   icon:"📦", effect:"Clear target at 120%+: next draft shows 4 options."},
   {id:"e3",name:"Efficiency",     cat:"economy",    rar:"uncommon", icon:"⚙️", effect:"Every 3 cascade steps in a level: +100 bonus score."},
   {id:"e4",name:"Leftovers",      cat:"economy",    rar:"rare",     icon:"🫙", effect:"Unused moves at level end each convert to +200 score."},
   // Positional
-  {id:"p1",name:"Foundation",     cat:"positional", rar:"common",   icon:"🌱", effect:"Cells cleared in the bottom 2 rows score +5 each."},
+  {id:"p1",name:"Foundation",     cat:"positional", rar:"common",   icon:"🌱", effect:"Cells cleared in the bottom 2 rows score +12 each."},
   {id:"p2",name:"Cornerstone",    cat:"positional", rar:"uncommon", icon:"🍄", effect:"Clearing a corner cell triggers a free 2×2 burst around it."},
   {id:"p3",name:"Deep Roots",     cat:"positional", rar:"common",   icon:"🌿", effect:"Each vertical match run: +60 bonus score."},
   {id:"p4",name:"Heart of the Glade",cat:"positional",rar:"rare",   icon:"🌻", effect:"Clearing any centre 4×4 cell: spawn a wrapped on the nearest edge."},
@@ -256,8 +257,8 @@ const RELIC_POOL = [
   {id:"q1",name:"Hot Streak",     cat:"sequential", rar:"common",   icon:"🕯️", effect:"3 consecutive cascade-triggering moves: next move scores ×2."},
   {id:"q2",name:"Rhythm",         cat:"sequential", rar:"common",   icon:"🎶", effect:"Match 4 different colours in a row: spawn a striped candy."},
   {id:"q3",name:"Focus",          cat:"sequential", rar:"uncommon", icon:"🔍", effect:"Every 5 completed moves: +200 bonus score."},
-  {id:"q4",name:"Flow State",     cat:"sequential", rar:"rare",     icon:"🌊", effect:"5 consecutive cascade-triggering moves: spawn a colour bomb."},
-  // Obstacle relics — active (o2 Choc Converter, o4 Jelly Bonus retired with obstacles)
+  {id:"q4",name:"Flow State",     cat:"sequential", rar:"rare",     icon:"🌊", effect:"3 consecutive cascade-triggering moves: spawn a colour bomb."},
+  // Obstacle relics
   {id:"o1",name:"Frost Breaker",  cat:"obstacle", rar:"common",   icon:"🧊", effect:"Clearing a frosted tile: spawn a striped candy directly above it."},
   {id:"o3",name:"Stone Splitter", cat:"obstacle", rar:"uncommon", icon:"🪨", effect:"Wrapped explosions also permanently remove adjacent stone tiles."},
 ];
@@ -280,12 +281,16 @@ function buildRelicContext(relics) {
 
   return {
     resetLevel() { avalancheDone=false;levelCascadeSteps=0;q1Streak=0;q4Streak=0;hotStreakReady=false;moveColors=[];moveCount=0; },
-    getTypeNorm() { if(!has("col4"))return null; return t=>(t===1?0:t); },
+    getTypeNorm() {
+      const c4=has("col4"),c5=has("col5");
+      if(!c4&&!c5)return null;
+      return t=>{if(c4&&t===1)return 0;if(c5&&t===5)return 3;return t;};
+    },
     hasPowerStripe() { return has("s1"); },
     getWrappedRadius() { return has("s2")?2:1; },
     hasGrandFinale() { return has("s4"); },
 
-    modifyStepScore(baseGain, stepIdx, matched, runs, gridBeforeClear, obstacleClears={}) {
+    modifyStepScore(baseGain, stepIdx, matched, runs, gridBeforeClear) {
       let gain=baseGain; const events=[];
       if(has("c4")&&stepIdx===0&&!avalancheDone){gain=Math.round(gain*3);avalancheDone=true;events.push("🏔️ Avalanche ×3");}
       if(hotStreakReady&&stepIdx===0){gain=Math.round(gain*2);hotStreakReady=false;events.push("🕯️ Hot Streak ×2");}
@@ -293,17 +298,12 @@ function buildRelicContext(relics) {
       if(has("c3")&&stepIdx>=2){gain=Math.round(gain*2);events.push("💨 Momentum ×2");}
       let bonus=0;
       if(has("c2")&&stepIdx===2){bonus+=150;events.push("🔥 Combo Rush +150");}
-      if(has("p1")){let n=0;matched.forEach(k=>{const[r]=k.split(",").map(Number);if(r>=ROWS-2)n++;});bonus+=n*5;}
+      if(has("p1")){let n=0;matched.forEach(k=>{const[r]=k.split(",").map(Number);if(r>=ROWS-2)n++;});bonus+=n*12;}
       if(has("p3")){const v=runs.filter(r=>r.dir==="v").length;bonus+=v*60;}
       // col1: rose = type 0
-      if(has("col1")){let n=0;matched.forEach(k=>{const[r,c]=k.split(",").map(Number);if(gridBeforeClear[r]?.[c]?.type===0)n++;});bonus+=n*8;}
+      if(has("col1")){let n=0;matched.forEach(k=>{const[r,c]=k.split(",").map(Number);if(gridBeforeClear[r]?.[c]?.type===0)n++;});bonus+=n*20;}
       levelCascadeSteps++;
       if(has("e3")&&levelCascadeSteps%3===0){bonus+=100;events.push("⚙️ Efficiency +100");}
-      // o4 Jelly Bonus
-      if(has("o4")&&obstacleClears.jelly>0){
-        const mult=obstacleClears.jellyFeast?3:1;
-        const jb=obstacleClears.jelly*80*mult;bonus+=jb;events.push(`🟣 Jelly Bonus +${jb}`);
-      }
       return {adjustedGain:gain+bonus,events};
     },
 
@@ -353,7 +353,7 @@ function buildRelicContext(relics) {
       if(hadCascade){
         q1Streak++;q4Streak++;
         if(has("q1")&&q1Streak>=3){hotStreakReady=true;q1Streak=0;events.push("🕯️ Hot Streak armed!");}
-        if(has("q4")&&q4Streak>=5){
+        if(has("q4")&&q4Streak>=3){
           const cands=[];for(let r=0;r<3;r++)for(let c=0;c<COLS;c++)cands.push([r,c]);
           cands.sort(()=>Math.random()-0.5);
           if(cands.length){const[r,c]=cands[0];spawns.push({r,c,type:Math.floor(Math.random()*6),special:SPECIAL.COLOR_BOMB});}
@@ -391,20 +391,11 @@ function buildRelicContext(relics) {
       if(!has("o1")) return [];
       return positions.map(([r,c]) => {
         const ar = r - 1;
-        if(ar < 0 || !currentGrid[ar]?.[c] || currentGrid[ar][c].stone || currentGrid[ar][c].chocolate) return null;
+        if(ar < 0 || !currentGrid[ar]?.[c] || currentGrid[ar][c].stone) return null;
         return {r:ar, c, type:currentGrid[ar][c].type, special:SPECIAL.STRIPED_H};
       }).filter(Boolean);
     },
 
-    // o2 Choc Converter — return rarest colour index on board
-    getChocoConverterColor(grid) {
-      if(!has("o2")) return null;
-      const counts = new Array(7).fill(0);
-      for(let r=0;r<ROWS;r++) for(let c=0;c<COLS;c++) { const t=grid[r]?.[c]?.type; if(t!=null) counts[t]++; }
-      let rarest=0, minC=Infinity;
-      counts.forEach((n,i) => { if(n>0 && n<minC) { minC=n; rarest=i; } });
-      return rarest;
-    },
   };
 }
 
@@ -1492,7 +1483,6 @@ function GameScreen({levelDef,run,onComplete}){
   // Boon-modified parameters
   const numColors=Math.max(4,levelDef.colors-(boon?.id==="b3"?1:0));
   const maxMovesBase=MAX_MOVES+(boon?.id==="b2"?5:0);
-  const jellyFeastActive=boon?.id==="b6";
 
   const objective={
     ...levelDef.objective,
@@ -1655,7 +1645,7 @@ function GameScreen({levelDef,run,onComplete}){
     const steps=computeCascade(g,r1,c1,r2,c2,numColors,typeNorm,ctx);
     let totalGain=0,newQuota=quotaRef.current,newMaxCas=maxCasRef.current;
     const allRuns=[],allMatched=new Set(),allRelicEvents=[];
-    let butterCount=0,totalJelly=0,frostedClearedPos=[],totalChoco=0;
+    let butterCount=0,totalJelly=0,frostedClearedPos=[];
 
     if(steps.length>newMaxCas){newMaxCas=steps.length;setMaxCascade(newMaxCas);}
 
@@ -1665,10 +1655,9 @@ function GameScreen({levelDef,run,onComplete}){
       matched.forEach(k=>allMatched.add(k));
       totalJelly+=jellyClears?.length??0;
       frostedClears?.forEach(pos=>frostedClearedPos.push(pos));
-      totalChoco+=(chocoClears?.length??0);
       if(ctx.ids.has("col3"))matched.forEach(k=>{const[r,c]=k.split(",").map(Number);if(gridBefore[r]?.[c]?.type===3)butterCount++;});
       if(objective.type==="quota")matched.forEach(k=>{const[r,c]=k.split(",").map(Number);if(gridBefore[r]?.[c]?.type===objective.colorIndex)newQuota++;});
-      const{adjustedGain,events}=ctx.modifyStepScore(rawGain,i,matched,runs,gridBefore,{jelly:jellyClears?.length??0,jellyFeast:jellyFeastActive});
+      const{adjustedGain,events}=ctx.modifyStepScore(rawGain,i,matched,runs,gridBefore);
       if(events.length)allRelicEvents.push(...events);
       totalGain+=adjustedGain;
 
@@ -1692,7 +1681,6 @@ function GameScreen({levelDef,run,onComplete}){
         setGrid(g2);oRelicEvents.push("🧊 Frost Breaker!");
       }
     }
-    if(totalChoco>0&&ctx.getChocoConverterColor(gridRef.current)!=null)oRelicEvents.push("🍫 Choc Converter!");
 
     // Chocolate spreading — once after all cascade steps resolve
     if(steps.length>0){
@@ -1719,7 +1707,7 @@ function GameScreen({levelDef,run,onComplete}){
     if(mb){setScore(finalScore);setLastGain(mb);setTimeout(()=>setLastGain(null),700);}
     busyRef.current=false;
     checkObjective(finalScore,newQuota,newMaxCas,newMoves);
-  },[numColors,objective,checkObjective,ctx,applyMutations,showRelicMsg,jellyFeastActive]);
+  },[numColors,objective,checkObjective,ctx,applyMutations,showRelicMsg]);
 
   const handleTap=useCallback((r,c)=>{
     if(busyRef.current||phaseRef.current!=="play")return;
@@ -1946,15 +1934,52 @@ function GameScreen({levelDef,run,onComplete}){
 }
 
 // ═══════════════════════════════════════════════════════════════════
+// LOCAL STORAGE PERSISTENCE
+// Keys are namespaced to avoid collisions with other apps on the host.
+// Reads are wrapped in try/catch — corrupted or missing data falls
+// back to the supplied default without crashing.
+// ═══════════════════════════════════════════════════════════════════
+const LS = {
+  RUN:     "minzy_run",
+  SCREEN:  "minzy_screen",
+  SCORES:  "minzy_highscores",
+  CATS:    "minzy_enabledcats",
+};
+function lsLoad(key, fallback) {
+  try { const v=localStorage.getItem(key); return v!=null?JSON.parse(v):fallback; }
+  catch { return fallback; }
+}
+function lsSave(key, value) {
+  try { localStorage.setItem(key, JSON.stringify(value)); } catch {}
+}
+
+// ═══════════════════════════════════════════════════════════════════
 // APP ROOT
 // ═══════════════════════════════════════════════════════════════════
 function App(){
-  const[screen,     setScreen]    =useState("home");
-  const[run,        setRun]       =useState(null);
-  const[highScores, setHighScores]=useState([]);
-  const[enabledCats,setEnabledCats]=useState(()=>new Set(Object.keys(RELIC_CATEGORIES)));
+  const[screen,     setScreen]    =useState(()=>{
+    const s=lsLoad(LS.SCREEN,"home");
+    // Mid-level and mid-draft states can't be fully restored — drop back
+    // to the run map so the player can restart the current level cleanly.
+    if(s==="game"||s==="draft")return "map";
+    if(s==="complete")return "home";
+    return s;
+  });
+  const[run,        setRun]       =useState(()=>lsLoad(LS.RUN,null));
+  const[highScores, setHighScores]=useState(()=>lsLoad(LS.SCORES,[]));
+  const[enabledCats,setEnabledCats]=useState(()=>{
+    const saved=lsLoad(LS.CATS,null);
+    return saved?new Set(saved):new Set(Object.keys(RELIC_CATEGORIES));
+  });
   const pendingResult=useRef(null);
   const enabledCatsRef=useRef(enabledCats); enabledCatsRef.current=enabledCats;
+
+  // Persist state to localStorage whenever it changes.
+  // enabledCats is a Set, so serialise it as an array.
+  useEffect(()=>{ lsSave(LS.RUN,    run);          },[run]);
+  useEffect(()=>{ lsSave(LS.SCREEN, screen);        },[screen]);
+  useEffect(()=>{ lsSave(LS.SCORES, highScores);    },[highScores]);
+  useEffect(()=>{ lsSave(LS.CATS,   [...enabledCats]); },[enabledCats]);
 
   const handleToggleCat=useCallback(cat=>{
     setEnabledCats(prev=>{const next=new Set(prev);if(next.has(cat))next.delete(cat);else next.add(cat);return next;});
