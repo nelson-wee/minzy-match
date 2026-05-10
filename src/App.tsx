@@ -177,40 +177,37 @@ const MODIFIER_INFO = {
 const ANTE_LABELS = {1:"Ante I",2:"Ante II",3:"Ante III",4:"Finale"};
 
 // ═══════════════════════════════════════════════════════════════════
-// OBSTACLE CONSTANTS
+// OBSTACLE CONSTANTS  (v2.2 — Jelly and Chocolate retired)
 // frosted:2 = frozen (blocks matching, cracks on adjacent match)
 // frosted:1 = cracked (can be matched; clears on match)
-// jelly:true = underlay bonus on clear
 // stone:true = immovable barrier, special-clearable only
 // locked:true = matchable in-place but not swappable
-// chocolate:true = spreading barrier, cleared by adjacent match
 // ═══════════════════════════════════════════════════════════════════
-const OBS={FROSTED:"frosted",JELLY:"jelly",STONE:"stone",LOCKED:"locked",CHOCOLATE:"chocolate"};
+const OBS={FROSTED:"frosted",STONE:"stone",LOCKED:"locked"};
 
+// Base obstacle counts per level — placement is now exposure-based (see placeObstacles).
+// Jelly and Chocolate retired per design principles (nuisance paradigm).
 const LEVEL_OBSTACLE_CONFIGS=[
-  {},                          // L1
-  {},                          // L2
-  {frosted:4},                 // L3 boss
-  {frosted:4},                 // L4
-  {frosted:4},                 // L5
-  {stone:4,frosted:2},         // L6 boss
-  {stone:3,frosted:4},         // L7
-  {stone:4,frosted:4},         // L8
-  {stone:4,frosted:4},         // L9 boss
-  {stone:4,frosted:4,locked:2},// L10 finale
-  // Jelly and chocolate reserved for future release — see devlog v0.1
+  {},                                 // L1  — no obstacles
+  {},                                 // L2  — no obstacles
+  {frosted:4},                        // L3  boss — 4c, exposure band 40-60%
+  {frosted:3, stone:1},               // L4  — introducing stone
+  {frosted:4, stone:2},               // L5
+  {stone:4, frosted:2},               // L6  boss — stone-heavy; colour count doing difficulty work
+  {stone:3, frosted:4},               // L7
+  {stone:3, frosted:4},               // L8
+  {stone:4, frosted:4},               // L9  boss
+  {stone:4, frosted:4, locked:2},     // L10 finale
 ];
 
 // ═══════════════════════════════════════════════════════════════════
-// BOON POOL  — one-level items in 15% of non-boss drafts
+// BOON POOL  — one-level items  (b6 Jelly Feast retired with Jelly)
 // ═══════════════════════════════════════════════════════════════════
 const BOON_POOL=[
   {id:"b1",name:"Head Start",   icon:"✨",type:"boon",effect:"Begin next level with 2 random specials pre-placed on the board."},
   {id:"b2",name:"Extra Time",   icon:"🕰️",type:"boon",effect:"Next level: +5 bonus moves."},
   {id:"b3",name:"Colour Focus", icon:"🎨",type:"boon",effect:"Next level: one fewer colour on the board."},
   {id:"b4",name:"Bomb Drop",    icon:"💣",type:"boon",effect:"Next level: begin with a colour bomb pre-placed in the centre."},
-  // {id:"b5",name:"Frost Thaw",   icon:"🌤️",type:"boon",effect:"Next level: all frosted tiles begin pre-cracked (one hit to clear)."}, // keep — frosted still in v0.1
-  // {id:"b6",name:"Jelly Feast",  icon:"🍮",type:"boon",effect:"Next level: clearing jelly tiles scores ×3 bonus."}, // reserved — jelly not in v0.1
   {id:"b5",name:"Frost Thaw",   icon:"🌤️",type:"boon",effect:"Next level: all frosted tiles begin pre-cracked (one hit to clear)."},
   {id:"b7",name:"Swept Clean",  icon:"🧹",type:"boon",effect:"Next level: no obstacles placed on the board."},
 ];
@@ -260,11 +257,9 @@ const RELIC_POOL = [
   {id:"q2",name:"Rhythm",         cat:"sequential", rar:"common",   icon:"🎶", effect:"Match 4 different colours in a row: spawn a striped candy."},
   {id:"q3",name:"Focus",          cat:"sequential", rar:"uncommon", icon:"🔍", effect:"Every 5 completed moves: +200 bonus score."},
   {id:"q4",name:"Flow State",     cat:"sequential", rar:"rare",     icon:"🌊", effect:"5 consecutive cascade-triggering moves: spawn a colour bomb."},
-  // Obstacle relics — active
+  // Obstacle relics — active (o2 Choc Converter, o4 Jelly Bonus retired with obstacles)
   {id:"o1",name:"Frost Breaker",  cat:"obstacle", rar:"common",   icon:"🧊", effect:"Clearing a frosted tile: spawn a striped candy directly above it."},
-  // {id:"o2",name:"Choc Converter", cat:"obstacle", rar:"uncommon", icon:"🍫", effect:"Removing a chocolate tile converts it to your rarest on-board colour."}, // reserved — chocolate not in v0.1
   {id:"o3",name:"Stone Splitter", cat:"obstacle", rar:"uncommon", icon:"🪨", effect:"Wrapped explosions also permanently remove adjacent stone tiles."},
-  // {id:"o4",name:"Jelly Bonus",    cat:"obstacle", rar:"common",   icon:"🟣", effect:"Each jelly cleared: +80 bonus score."}, // reserved — jelly not in v0.1
 ];
 
 const RARITY_STYLE = {
@@ -481,9 +476,6 @@ function getQuotaColor(seed,levelIndex,numColors){
 // MATCH-3 ENGINE
 // ═══════════════════════════════════════════════════════════════════
 const MAX_MOVES=30;
-// cell size is computed dynamically in GameScreen based on viewport width.
-// Kept here as a fallback reference only (not used at runtime).
-const CELL_DEFAULT=42;
 let _uid=0;
 const newUid=()=>(++_uid).toString(36);
 const rngN=n=>Math.floor(Math.random()*n);
@@ -689,15 +681,13 @@ function placeObstacles(grid,levelIndex,seed,skipObstacles=false){
   for(let i=0;i<(cfg.stone||0);i++){const p=pick(stoneCands);if(p){const[r,c]=p;g[r][c]=makeStoneCell();}}
   const frostedCands=[];for(let r=1;r<ROWS-1;r++)for(let c=2;c<COLS-2;c++)frostedCands.push([r,c]);
   for(let i=0;i<(cfg.frosted||0);i++){const p=pick(frostedCands);if(p){const[r,c]=p;g[r][c]={...g[r][c],frosted:2};}}
-  // Jelly placement — reserved for future release (v0.2+)
-  // const jellyCands=[];for(let r=ROWS-3;r<ROWS;r++)for(let c=0;c<COLS;c++)jellyCands.push([r,c]);
-  // for(let r=0;r<ROWS-3;r++)for(let c=0;c<COLS;c++)jellyCands.push([r,c]);
-  // for(let i=0;i<(cfg.jelly||0);i++){const p=pick(jellyCands);if(p){const[r,c]=p;g[r][c]={...g[r][c],jelly:true};}}
-  // Chocolate placement — reserved for future release (v0.2+)
-  // const cornerOrder=[[0,0],[0,COLS-1],[ROWS-1,0],[ROWS-1,COLS-1]];
-  // for(let i=0;i<Math.min(cfg.chocolate||0,4);i++){
-  //   const[r,c]=cornerOrder[i];if(!used.has(`${r},${c}`)){g[r][c]=makeChocolateCell();used.add(`${r},${c}`);}
-  // }
+  const jellyCands=[];for(let r=ROWS-3;r<ROWS;r++)for(let c=0;c<COLS;c++)jellyCands.push([r,c]);
+  for(let r=0;r<ROWS-3;r++)for(let c=0;c<COLS;c++)jellyCands.push([r,c]);
+  for(let i=0;i<(cfg.jelly||0);i++){const p=pick(jellyCands);if(p){const[r,c]=p;g[r][c]={...g[r][c],jelly:true};}}
+  const cornerOrder=[[0,0],[0,COLS-1],[ROWS-1,0],[ROWS-1,COLS-1]];
+  for(let i=0;i<Math.min(cfg.chocolate||0,4);i++){
+    const[r,c]=cornerOrder[i];if(!used.has(`${r},${c}`)){g[r][c]=makeChocolateCell();used.add(`${r},${c}`);}
+  }
   const lockCands=[];for(let r=3;r<5;r++)for(let c=2;c<6;c++)lockCands.push([r,c]);
   const lockSpecials=[SPECIAL.STRIPED_H,SPECIAL.WRAPPED,SPECIAL.STRIPED_V];
   for(let i=0;i<(cfg.locked||0);i++){const p=pick(lockCands);if(p){const[r,c]=p;g[r][c]={...g[r][c],special:lockSpecials[i%3],locked:true};}}
@@ -989,6 +979,8 @@ function CottageGem({typeIndex, season, size=38, special=null, selected=false}){
 
 // ═══════════════════════════════════════════════════════════════════
 // VIEWPORT HOOK — returns live window dimensions, updates on resize.
+// Cell size is computed per-device: max 46px (tablet/desktop), min 30px (tiny phone).
+// Formula: fill available width minus 40px side padding and 8px board frame.
 // ═══════════════════════════════════════════════════════════════════
 function useViewport() {
   const[size,setSize]=useState(()=>({vw:window.innerWidth,vh:window.innerHeight}));
@@ -999,10 +991,6 @@ function useViewport() {
   },[]);
   return size;
 }
-
-// Compute board cell size from viewport width.
-// 20px padding each side, 8px board frame → board fills remaining width.
-// Clamped: max 46 (tablet), min 30 (tiny phone).
 function computeCell(vw){ return Math.min(46,Math.max(30,Math.floor((vw-40)/COLS))); }
 
 // ═══════════════════════════════════════════════════════════════════
@@ -1224,7 +1212,7 @@ function HomeScreen({onNewRun,onResume,hasActiveRun,highScores,runSeed,enabledCa
 // ═══════════════════════════════════════════════════════════════════
 function RunMapScreen({run,onPlay,onHome}){
   const{vw,vh}=useViewport();
-  const isSmall=vw<375;        // iPhone SE and similar
+  const isSmall=vw<375;
   const maxW=Math.min(vw-24,420);
   const currentIdx=run.levelResults.length;
   const nextDef=LEVEL_DEFS[currentIdx];
@@ -1303,33 +1291,33 @@ function RunMapScreen({run,onPlay,onHome}){
                 const cfg=LEVEL_OBSTACLE_CONFIGS[idx]??{};
                 const obsIcons=[
                   cfg.frosted&&{icon:"❄",tip:"Frosted"},
-                  // cfg.jelly&&{icon:"🟣",tip:"Jelly"},   // v0.2+
+                  cfg.jelly&&{icon:"🟣",tip:"Jelly"},
                   cfg.stone&&{icon:"🪨",tip:"Stone"},
-                  // cfg.chocolate&&{icon:"🍫",tip:"Chocolate"}, // v0.2+
+                  cfg.chocolate&&{icon:"🍫",tip:"Chocolate"},
                   cfg.locked&&{icon:"🔒",tip:"Locked"},
                 ].filter(Boolean);
                 return(
                   <Card key={def.level} ch={{boardTop:lch.boardTop,boardBot:lch.boardBot,frame:lch.frame}} style={{
-                    padding:isSmall?"7px 10px":"10px 14px",opacity:isFuture?0.5:1,
+                    padding:"10px 14px",opacity:isFuture?0.5:1,
                     border:isCurrent?`2px solid ${lch.accent}`:undefined,
                     boxShadow:isCurrent?`0 0 12px ${lch.accent}44, inset 1px 0 rgba(255,255,255,0.7), 0 2px 8px rgba(80,60,40,0.12)`:undefined,
                   }}>
-                    <div style={{display:"flex",alignItems:"center",gap:isSmall?6:10}}>
-                      <div style={{fontSize:isSmall?14:18,width:20,textAlign:"center"}}>{def.type==="boss"?"👑":def.type==="finale"?"🏆":isCurrent?"▶":passed?"✓":result?"✗":"○"}</div>
+                    <div style={{display:"flex",alignItems:"center",gap:10}}>
+                      <div style={{fontSize:18,width:24,textAlign:"center"}}>{def.type==="boss"?"👑":def.type==="finale"?"🏆":isCurrent?"▶":passed?"✓":result?"✗":"○"}</div>
                       <div style={{flex:1}}>
-                        <div style={{display:"flex",alignItems:"center",gap:4,marginBottom:isSmall?1:2}}>
-                          <span style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:isSmall?12:14,color:lch.ink}}>Level {def.level}</span>
-                          {def.type==="boss"&&<span style={{fontSize:9,background:`${lch.starFill}55`,color:lch.starStroke,padding:"1px 5px",borderRadius:8,fontWeight:700}}>BOSS</span>}
-                          {def.type==="finale"&&<span style={{fontSize:9,background:`${lch.accent}22`,color:lch.accent,padding:"1px 5px",borderRadius:8,fontWeight:700}}>FINALE</span>}
-                          <span style={{fontSize:9,color:lch.inkSoft}}>{def.colors}c</span>
-                          {obsIcons.length>0&&<span style={{fontSize:10,letterSpacing:1}}>{obsIcons.map(o=>o.icon).join("")}</span>}
+                        <div style={{display:"flex",alignItems:"center",gap:6,marginBottom:2}}>
+                          <span style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:14,color:lch.ink}}>Level {def.level}</span>
+                          {def.type==="boss"&&<span style={{fontSize:9,background:`${lch.starFill}55`,color:lch.starStroke,padding:"1px 6px",borderRadius:8,fontWeight:700}}>BOSS</span>}
+                          {def.type==="finale"&&<span style={{fontSize:9,background:`${lch.accent}22`,color:lch.accent,padding:"1px 6px",borderRadius:8,fontWeight:700}}>FINALE</span>}
+                          <span style={{fontSize:10,color:lch.inkSoft}}>{def.colors}c</span>
+                          {obsIcons.length>0&&<span style={{fontSize:11,letterSpacing:1}}>{obsIcons.map(o=>o.icon).join("")}</span>}
                         </div>
-                        <div style={{fontSize:isSmall?10:12,color:lch.inkSoft}}>{objLabel(def)}</div>
-                        {!isSmall&&def.modifier&&<div style={{fontSize:11,color:lch.accent,marginTop:2}}>{MODIFIER_INFO[def.modifier]?.icon} {MODIFIER_INFO[def.modifier]?.label}</div>}
+                        <div style={{fontSize:12,color:lch.inkSoft}}>{objLabel(def)}</div>
+                        {def.modifier&&<div style={{fontSize:11,color:lch.accent,marginTop:2}}>{MODIFIER_INFO[def.modifier]?.icon} {MODIFIER_INFO[def.modifier]?.label}</div>}
                       </div>
                       {result&&<div style={{textAlign:"right"}}>
-                        <div style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:isSmall?12:14,color:passed?"#6a994f":"#cd6a5e"}}>{result.score.toLocaleString()}</div>
-                        <div style={{fontSize:9,color:lch.inkSoft}}>{result.movesRemaining}mv</div>
+                        <div style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:14,color:passed?"#6a994f":"#cd6a5e"}}>{result.score.toLocaleString()}</div>
+                        <div style={{fontSize:10,color:lch.inkSoft}}>{result.movesRemaining}mv left</div>
                       </div>}
                     </div>
                   </Card>
@@ -1489,7 +1477,7 @@ function RunCompleteScreen({run,onHome}){
 // ═══════════════════════════════════════════════════════════════════
 function GameScreen({levelDef,run,onComplete}){
   const{vw,vh}=useViewport();
-  const cell=computeCell(vw); // dynamic cell size for this device
+  const cellSize=computeCell(vw);  // renamed from `cell` to avoid shadowing grid-cell map params
   const levelIdx=run.levelResults.length;
   const boon=run.pendingBoon??null;
   const season=getSeason(levelDef.ante);
@@ -1498,7 +1486,7 @@ function GameScreen({levelDef,run,onComplete}){
   // Boon-modified parameters
   const numColors=Math.max(4,levelDef.colors-(boon?.id==="b3"?1:0));
   const maxMovesBase=MAX_MOVES+(boon?.id==="b2"?5:0);
-  const jellyFeastActive=false; // reserved — jelly not in v0.1
+  const jellyFeastActive=boon?.id==="b6";
 
   const objective={
     ...levelDef.objective,
@@ -1700,8 +1688,11 @@ function GameScreen({levelDef,run,onComplete}){
     }
     if(totalChoco>0&&ctx.getChocoConverterColor(gridRef.current)!=null)oRelicEvents.push("🍫 Choc Converter!");
 
-    // Chocolate spreading — reserved for v0.2+
-    // if(steps.length>0){const postSpread=spreadChocolate(gridRef.current,allMatched);setGrid(postSpread);}
+    // Chocolate spreading — once after all cascade steps resolve
+    if(steps.length>0){
+      const postSpread=spreadChocolate(gridRef.current,allMatched);
+      setGrid(postSpread);
+    }
 
     if([...allRelicEvents,...oRelicEvents].length>0)showRelicMsg([...new Set([...allRelicEvents,...oRelicEvents])]);
     if(objective.type==="quota")setQuotaProgress(newQuota);
@@ -1800,8 +1791,7 @@ function GameScreen({levelDef,run,onComplete}){
     }
   };
 
-  const BW=COLS*cell+8,BH=ROWS*cell+8;
-
+  const BW=COLS*cellSize+8,BH=ROWS*cellSize+8;
   const hPad=Math.max(4,Math.floor((vw-BW)/2)); // centre board with minimal side padding
 
   return(
@@ -1811,7 +1801,7 @@ function GameScreen({levelDef,run,onComplete}){
       <SeasonDots ch={ch}/>
 
       {/* Level header */}
-      <div style={{width:BW,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:4,position:"relative",zIndex:1}}>
+      <div style={{width:BW,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:6,position:"relative",zIndex:1}}>
         <div style={{fontFamily:FF_SERIF,fontSize:13,fontWeight:600,fontStyle:"italic",color:ch.ink}}>
           {s.motif} {s.label} · Level {levelDef.level}
         </div>
@@ -1846,7 +1836,7 @@ function GameScreen({levelDef,run,onComplete}){
           const isJelly=cell?.jelly&&!popping.has(`${r},${c}`);
           return(
             <div key={`bg-${r}-${c}`} style={{
-              position:"absolute",left:c*cell+4,top:r*cell+4,width:cell-2,height:cell-2,borderRadius:8,
+              position:"absolute",left:c*cellSize+4,top:r*cellSize+4,width:cellSize-2,height:cellSize-2,borderRadius:8,
               background:isJelly?`linear-gradient(180deg,rgba(160,80,200,0.22),rgba(120,50,170,0.14))`:(r+c)%2===0?`${ch.frame}22`:`${ch.frame}0e`,
               border:isJelly?`1.5px solid rgba(180,100,220,0.55)`:hl?hl.border:"1px solid transparent",
               boxShadow:hl?hl.shadow:"none",
@@ -1860,19 +1850,19 @@ function GameScreen({levelDef,run,onComplete}){
           if(!cell)return null;
           const key=`${r},${c}`,isPop=popping.has(key),isSel=selected?.r===r&&selected?.c===c;
 
-          if(cell.stone)return <div key={cell.id} style={{position:"absolute",left:c*cell+4,top:r*cell+4,width:cell-4,height:cell-4,transition:"opacity 0.28s",opacity:isPop?0:1}}><StoneCell size={cell-4} ch={ch}/></div>;
+          if(cell.stone)return <div key={cell.id} style={{position:"absolute",left:c*cellSize+4,top:r*cellSize+4,width:cellSize-4,height:cellSize-4,transition:"opacity 0.28s",opacity:isPop?0:1}}><StoneCell size={cellSize-4} ch={ch}/></div>;
 
-          if(cell.chocolate)return <div key={cell.id} style={{position:"absolute",left:c*cell+4,top:r*cell+4,width:cell-4,height:cell-4,transition:"transform 0.22s,opacity 0.28s",transform:isPop?"scale(0) rotate(20deg)":"scale(1)",opacity:isPop?0:1}}><ChocolateCell size={cell-4}/></div>;
+          if(cell.chocolate)return <div key={cell.id} style={{position:"absolute",left:c*cellSize+4,top:r*cellSize+4,width:cellSize-4,height:cellSize-4,transition:"transform 0.22s,opacity 0.28s",transform:isPop?"scale(0) rotate(20deg)":"scale(1)",opacity:isPop?0:1}}><ChocolateCell size={cellSize-4}/></div>;
 
           return(
-            <div key={cell.id} style={{position:"absolute",left:c*cell+4,top:r*cell+4,width:cell-4,height:cell-4,
+            <div key={cell.id} style={{position:"absolute",left:c*cellSize+4,top:r*cellSize+4,width:cellSize-4,height:cellSize-4,
               transition:"transform 0.22s cubic-bezier(0.34,1.56,0.64,1),opacity 0.28s ease",
               transform:isPop?"scale(0) rotate(30deg)":isSel?"scale(1.15)":"scale(1)",
               opacity:isPop?0:1,zIndex:isSel?20:1,cursor:cell.frosted===2||cell.stone?"default":"pointer"}}
               onClick={()=>handleTap(r,c)} onTouchStart={e=>onTouchStart(e,r,c)} onTouchEnd={e=>onTouchEnd(e,r,c)}>
-              <CottageGem typeIndex={cell.type} season={season} size={cell-4} special={cell.special} selected={isSel&&cell.frosted!==2}/>
-              {cell.frosted&&<FrostedOverlay health={cell.frosted} size={cell-4}/>}
-              {cell.locked&&<LockedOverlay size={cell-4}/>}
+              <CottageGem typeIndex={cell.type} season={season} size={cellSize-4} special={cell.special} selected={isSel&&cell.frosted!==2}/>
+              {cell.frosted&&<FrostedOverlay health={cell.frosted} size={cellSize-4}/>}
+              {cell.locked&&<LockedOverlay size={cellSize-4}/>}
             </div>
           );
         }))}
@@ -1930,7 +1920,7 @@ function GameScreen({levelDef,run,onComplete}){
       {(()=>{
         const obsOnBoard=grid.some(row=>row.some(c=>c?.stone||c?.chocolate||c?.frosted||c?.jelly||c?.locked));
         if(!obsOnBoard)return null;
-        const items=[["❄","frozen"],["🪨","stone"],["🔒","locked"]]; // jelly+choc reserved v0.2+
+        const items=[["❄","frozen"],["🟣","jelly"],["🪨","stone"],["🍫","choc"],["🔒","locked"]];
         return(
           <div style={{marginTop:3,display:"flex",flexWrap:"wrap",justifyContent:"center",gap:"3px 12px",maxWidth:BW,position:"relative",zIndex:1}}>
             {items.map(([icon,label])=>(
