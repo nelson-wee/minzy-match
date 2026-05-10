@@ -979,8 +979,10 @@ function CottageGem({typeIndex, season, size=38, special=null, selected=false}){
 
 // ═══════════════════════════════════════════════════════════════════
 // VIEWPORT HOOK — returns live window dimensions, updates on resize.
-// Cell size is computed per-device: max 46px (tablet/desktop), min 30px (tiny phone).
-// Formula: fill available width minus 40px side padding and 8px board frame.
+// Cell size is computed per-device to guarantee the whole game fits without scrolling.
+// fromWidth : fill viewport width minus 40px side padding and 8px board frame.
+// fromHeight: leave ~260px for fixed chrome (header, objective, moves pill, legend, padding).
+// Final cellSize = min(fromWidth, fromHeight), clamped 28–46 px.
 // ═══════════════════════════════════════════════════════════════════
 function useViewport() {
   const[size,setSize]=useState(()=>({vw:window.innerWidth,vh:window.innerHeight}));
@@ -991,7 +993,11 @@ function useViewport() {
   },[]);
   return size;
 }
-function computeCell(vw){ return Math.min(46,Math.max(30,Math.floor((vw-40)/COLS))); }
+function computeCell(vw,vh){
+  const fromWidth =Math.floor((vw-40)/COLS);
+  const fromHeight=Math.floor((vh-260)/ROWS);
+  return Math.min(46,Math.max(28,Math.min(fromWidth,fromHeight)));
+}
 
 // ═══════════════════════════════════════════════════════════════════
 // TOOLTIP SYSTEM — hover (desktop) + 400ms long-press (mobile)
@@ -1477,7 +1483,7 @@ function RunCompleteScreen({run,onHome}){
 // ═══════════════════════════════════════════════════════════════════
 function GameScreen({levelDef,run,onComplete}){
   const{vw,vh}=useViewport();
-  const cellSize=computeCell(vw);  // renamed from `cell` to avoid shadowing grid-cell map params
+  const cellSize=computeCell(vw,vh); // sized to fit both width AND height — no scroll needed
   const levelIdx=run.levelResults.length;
   const boon=run.pendingBoon??null;
   const season=getSeason(levelDef.ante);
@@ -1795,8 +1801,9 @@ function GameScreen({levelDef,run,onComplete}){
   const hPad=Math.max(4,Math.floor((vw-BW)/2)); // centre board with minimal side padding
 
   return(
-    <div style={{fontFamily:FF_SANS,background:ch.pageWash,minHeight:"100vh",
-      display:"flex",flexDirection:"column",alignItems:"center",padding:`${Math.min(14,Math.floor(vh*0.016))}px ${hPad}px 16px`,
+    <div style={{fontFamily:FF_SANS,background:ch.pageWash,
+      height:"100vh",maxHeight:"100vh",overflow:"hidden",overscrollBehavior:"none",
+      display:"flex",flexDirection:"column",alignItems:"center",padding:`${Math.min(14,Math.floor(vh*0.016))}px ${hPad}px 8px`,
       color:ch.ink,userSelect:"none",WebkitUserSelect:"none",WebkitTouchCallout:"none",position:"relative"}}>
       <SeasonDots ch={ch}/>
 
@@ -1827,7 +1834,7 @@ function GameScreen({levelDef,run,onComplete}){
         background:`linear-gradient(180deg,${ch.boardTop} 0%,${ch.boardBot} 100%)`,
         borderRadius:18,border:`2px solid ${ch.frame}`,
         boxShadow:`inset 0 0 0 1px ${ch.innerHi},inset 0 2px 6px ${ch.innerSh},0 6px 18px rgba(80,60,40,0.18)`,
-        overflow:"hidden",flexShrink:0,zIndex:1}}>
+        overflow:"hidden",flexShrink:0,zIndex:1,touchAction:"none"}}>
 
         {/* Cell backgrounds — jelly underlay + positional highlights */}
         {Array.from({length:ROWS},(_,r)=>Array.from({length:COLS},(_,c)=>{
