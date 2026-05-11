@@ -156,16 +156,16 @@ const SPECIAL_REGISTRY = {
 // LEVEL DEFINITIONS
 // ═══════════════════════════════════════════════════════════════════
 const LEVEL_DEFS = [
-  {level:1,  ante:1, colors:4, type:"standard", objective:{type:"score",  target:2500}},
-  {level:2,  ante:1, colors:4, type:"standard", objective:{type:"score",  target:3000}},
-  {level:3,  ante:1, colors:4, type:"boss",     objective:{type:"score",  target:3800}, modifier:"color_lock"},
-  {level:4,  ante:2, colors:5, type:"standard", objective:{type:"quota",  target:20  }},
-  {level:5,  ante:2, colors:5, type:"standard", objective:{type:"score",  target:2200}},
-  {level:6,  ante:2, colors:5, type:"boss",     objective:{type:"score",  target:2800}, modifier:"creeping_frost"},
-  {level:7,  ante:3, colors:6, type:"standard", objective:{type:"score",  target:1700}},
-  {level:8,  ante:3, colors:6, type:"standard", objective:{type:"cascade",target:3  }},
-  {level:9,  ante:3, colors:6, type:"boss",     objective:{type:"score",  target:2200}, modifier:"weighted_board"},
-  {level:10, ante:4, colors:7, type:"finale",   objective:{type:"score",  target:1400}, modifier:"creeping_frost"},
+  {level:1,  ante:1, colors:4, type:"standard", objective:{type:"score",  target:2500 }},
+  {level:2,  ante:1, colors:4, type:"standard", objective:{type:"score",  target:3200 }},
+  {level:3,  ante:1, colors:4, type:"boss",     objective:{type:"score",  target:4500 }, modifier:"color_lock"},
+  {level:4,  ante:2, colors:5, type:"standard", objective:{type:"quota",  target:30   }},
+  {level:5,  ante:2, colors:5, type:"standard", objective:{type:"score",  target:5500 }},
+  {level:6,  ante:2, colors:5, type:"boss",     objective:{type:"score",  target:7500 }, modifier:"creeping_frost"},
+  {level:7,  ante:3, colors:6, type:"standard", objective:{type:"score",  target:7000 }},
+  {level:8,  ante:3, colors:6, type:"standard", objective:{type:"cascade",target:15   }},
+  {level:9,  ante:3, colors:6, type:"boss",     objective:{type:"score",  target:9500 }, modifier:"weighted_board"},
+  {level:10, ante:4, colors:7, type:"finale",   objective:{type:"score",  target:11000}, modifier:"creeping_frost"},
 ];
 
 const MODIFIER_INFO = {
@@ -700,6 +700,14 @@ function applyBoonToGrid(grid,boon,numColors){
   return g;
 }
 
+// Points per tile scale with ante to keep scoring feel consistent at higher colour counts
+function tileValue(numTypes){
+  if(numTypes<=4)return 10;
+  if(numTypes===5)return 15;
+  if(numTypes===6)return 20;
+  return 25; // 7+
+}
+
 function computeCascade(startGrid,aR1=-1,aC1=-1,aR2=-1,aC2=-1,numTypes=6,typeNorm=null,relicCtx=null){
   const steps=[];let g=startGrid,combo=1,first=true;
   while(true){
@@ -719,7 +727,7 @@ function computeCascade(startGrid,aR1=-1,aC1=-1,aR2=-1,aC2=-1,numTypes=6,typeNor
     // Also count chocolate hits (adjacent clears)
     chocolateHits.forEach(k=>chocoClears.push(k));
 
-    const rawGain=expanded.size*10*combo;
+    const rawGain=expanded.size*tileValue(numTypes)*combo;
     const next=clone(g);
     expanded.forEach(k=>{const[r,c]=k.split(",").map(Number);next[r][c]=null;});
     // Apply chocolate hits as clears (they are adjacent, not in expanded)
@@ -1221,7 +1229,7 @@ function RunMapScreen({run,onPlay,onHome}){
   const objLabel=def=>{
     const season=getSeason(def.ante);
     if(def.objective.type==="score")   return `Score ${def.objective.target.toLocaleString()}`;
-    if(def.objective.type==="cascade") return `Chain ×${def.objective.target}`;
+    if(def.objective.type==="cascade") return `Chain ${def.objective.target} steps`;
     if(def.objective.type==="quota"){
       const ci=def.objective.colorIndex??getQuotaColor(run.seed,def.level-1,def.colors);
       return `Clear ${def.objective.target}× ${getCandy(ci,season).name}`;
@@ -1508,13 +1516,13 @@ function GameScreen({levelDef,run,onComplete}){
   const[lastGain,setLastGain]=useState(null);
   const[phase,   setPhase]  =useState("play");
   const[quotaProgress,setQuotaProgress]=useState(0);
-  const[maxCascade,setMaxCascade]=useState(0);
+  const[cascadeProgress,setCascadeProgress]=useState(0);
 
   const gridRef =useRef(grid);     gridRef.current=grid;
   const scoreRef=useRef(score);    scoreRef.current=score;
   const movesRef=useRef(moves);    movesRef.current=moves;
   const quotaRef=useRef(quotaProgress); quotaRef.current=quotaProgress;
-  const maxCasRef=useRef(maxCascade);   maxCasRef.current=maxCascade;
+  const cascadeRef=useRef(cascadeProgress); cascadeRef.current=cascadeProgress;
   const busyRef =useRef(false);
   const touchRef=useRef(null);
   const phaseRef=useRef(phase);    phaseRef.current=phase;
@@ -1621,7 +1629,7 @@ function GameScreen({levelDef,run,onComplete}){
         if(nearest){const h=SPECIAL_REGISTRY[nearest.cell.special];if(h)h.activate(g,nearest.r,nearest.c,nearest.cell.type).forEach(k=>seed2.add(k));g[nearest.r][nearest.c]={...nearest.cell,special:SPECIAL.NONE};relicEvents.push("🎆 Grand Finale!");}
       }
       const expanded=expandWithSpecials(g,seed2,ctx);
-      const gain=expanded.size*10;
+      const gain=expanded.size*tileValue(numColors);
       let newQuota=quotaRef.current;
       if(objective.type==="quota")expanded.forEach(k=>{const[r,c]=k.split(",").map(Number);if(g[r]?.[c]?.type===objective.colorIndex)newQuota++;});
       const next=clone(g);expanded.forEach(k=>{const[r,c]=k.split(",").map(Number);next[r][c]=null;});
@@ -1636,18 +1644,18 @@ function GameScreen({levelDef,run,onComplete}){
       let afterGrid=filled;
       if(ms.length||mb||me.length){afterGrid=await applyMutations(filled,{spawns:ms,extraClr:[],events:me});if(mb){setScore(ss=>ss+mb);setLastGain(mb);setTimeout(()=>setLastGain(null),700);}}
       busyRef.current=false;
-      checkObjective(newScore+mb,newQuota,maxCasRef.current,newMoves);
+      checkObjective(newScore+mb,newQuota,cascadeRef.current,newMoves);
       return;
     }
 
     // ── Normal cascade ────────────────────────────────────────────
     setGrid(g);
     const steps=computeCascade(g,r1,c1,r2,c2,numColors,typeNorm,ctx);
-    let totalGain=0,newQuota=quotaRef.current,newMaxCas=maxCasRef.current;
+    let totalGain=0,newQuota=quotaRef.current,newCasc=cascadeRef.current;
     const allRuns=[],allMatched=new Set(),allRelicEvents=[];
     let butterCount=0,totalJelly=0,frostedClearedPos=[];
 
-    if(steps.length>newMaxCas){newMaxCas=steps.length;setMaxCascade(newMaxCas);}
+    const cascadeGain=Math.max(0,steps.length-1);newCasc+=cascadeGain;if(cascadeGain>0)setCascadeProgress(newCasc);
 
     for(let i=0;i<steps.length;i++){
       const{matched,gridAfter,rawGain,runs,gridBefore,jellyClears,frostedClears,stoneClears,chocoClears}=steps[i];
@@ -1706,7 +1714,7 @@ function GameScreen({levelDef,run,onComplete}){
     const finalScore=newScore+mb;
     if(mb){setScore(finalScore);setLastGain(mb);setTimeout(()=>setLastGain(null),700);}
     busyRef.current=false;
-    checkObjective(finalScore,newQuota,newMaxCas,newMoves);
+    checkObjective(finalScore,newQuota,newCasc,newMoves);
   },[numColors,objective,checkObjective,ctx,applyMutations,showRelicMsg]);
 
   const handleTap=useCallback((r,c)=>{
@@ -1775,11 +1783,11 @@ function GameScreen({levelDef,run,onComplete}){
     if(type==="cascade"){
       return(<div style={{width:"100%",marginBottom:6}}>
         <div style={{display:"flex",justifyContent:"space-between",fontSize:12,color:ch.inkSoft,marginBottom:4,fontFamily:FF_SANS,fontWeight:600}}>
-          <span>Best chain: <b style={{color:ch.accent}}>{maxCascade}×</b> / {target}×</span>
+          <span>Cascades: <b style={{color:ch.accent}}>{cascadeProgress}</b> / {target}</span>
           <span>{score.toLocaleString()} pts</span>
         </div>
         <div style={{height:10,borderRadius:999,background:ch.progressTrack,border:`1px solid ${ch.progressBorder}`,overflow:"hidden"}}>
-          <div style={{width:`${Math.min(maxCascade/target,1)*100}%`,height:"100%",background:`linear-gradient(90deg,${ch.accent},${ch.starStroke})`,borderRadius:999,transition:"width 0.5s ease"}}/>
+          <div style={{width:`${Math.min(cascadeProgress/target,1)*100}%`,height:"100%",background:`linear-gradient(90deg,${ch.accent},${ch.starStroke})`,borderRadius:999,transition:"width 0.5s ease"}}/>
         </div>
       </div>);
     }
