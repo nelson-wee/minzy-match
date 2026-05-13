@@ -237,6 +237,7 @@ const RELIC_POOL = [
   {id:"s2",name:"Blast Radius",   cat:"special",    rar:"uncommon", icon:"💥", effect:"Wrapped candy burst expands to 5×5."},
   {id:"s3",name:"Lucky 4",        cat:"special",    rar:"uncommon", icon:"🍀", effect:"Match-4 striped: 30% chance to upgrade to wrapped."},
   {id:"s4",name:"Grand Finale",   cat:"special",    rar:"rare",     icon:"🎆", effect:"Activating a colour bomb also fires the nearest other special."},
+  {id:"s5",name:"Afterburn",      cat:"special",    rar:"uncommon", icon:"🌶️", effect:"After a striped candy fires, 30% chance a random other striped on the board fires immediately. Each triggered stripe has the same 30% chance to chain further."},
   // Colour
   {id:"col1",name:"Rosepetal",    cat:"color",      rar:"common",   icon:"🌸", effect:"Each rose cleared scores +20 bonus."},
   {id:"col2",name:"Blossom Chain",cat:"color",      rar:"uncommon", icon:"🌺", effect:"Match-4+ rose run: spawn a striped rose nearby."},
@@ -258,6 +259,7 @@ const RELIC_POOL = [
   {id:"q2",name:"Rhythm",         cat:"sequential", rar:"common",   icon:"🎶", effect:"Match 4 different colours in a row: spawn a striped candy."},
   {id:"q3",name:"Focus",          cat:"sequential", rar:"uncommon", icon:"🔍", effect:"Every 5 completed moves: +200 bonus score."},
   {id:"q4",name:"Flow State",     cat:"sequential", rar:"rare",     icon:"🌊", effect:"3 consecutive cascade-triggering moves: spawn a colour bomb."},
+  {id:"q5",name:"Composure",      cat:"sequential", rar:"uncommon", icon:"🧘", effect:"Each flat move (no cascade, no special fired) builds a score multiplier: ×1.5 after 1, up to ×4 after 6 flat moves. The next cascade or special activation cashes it in and resets. Counter is always visible."},
   // Obstacle relics
   {id:"o1",name:"Frost Breaker",  cat:"obstacle", rar:"common",   icon:"🧊", effect:"Clearing a frosted tile: spawn a striped candy directly above it."},
   {id:"o3",name:"Stone Splitter", cat:"obstacle", rar:"uncommon", icon:"🪨", effect:"Wrapped explosions also permanently remove adjacent stone tiles."},
@@ -278,9 +280,10 @@ function buildRelicContext(relics) {
   let avalancheDone=false, levelCascadeSteps=0;
   let q1Streak=0, q4Streak=0, hotStreakReady=false;
   let moveColors=[], moveCount=0;
+  let composureCount=0;
 
   return {
-    resetLevel() { avalancheDone=false;levelCascadeSteps=0;q1Streak=0;q4Streak=0;hotStreakReady=false;moveColors=[];moveCount=0; },
+    resetLevel() { avalancheDone=false;levelCascadeSteps=0;q1Streak=0;q4Streak=0;hotStreakReady=false;moveColors=[];moveCount=0;composureCount=0; },
     getTypeNorm() {
       const c4=has("col4"),c5=has("col5");
       if(!c4&&!c5)return null;
@@ -356,7 +359,7 @@ function buildRelicContext(relics) {
         if(has("q4")&&q4Streak>=3){
           const cands=[];for(let r=0;r<3;r++)for(let c=0;c<COLS;c++)cands.push([r,c]);
           cands.sort(()=>Math.random()-0.5);
-          if(cands.length){const[r,c]=cands[0];spawns.push({r,c,type:Math.floor(Math.random()*6),special:SPECIAL.COLOR_BOMB});}
+          if(cands.length){const[r,c]=cands[0];spawns.push({r,c,type:null,special:SPECIAL.COLOR_BOMB});}
           q4Streak=0;events.push("🌊 Flow State! Colour bomb spawned.");
         }
       } else {q1Streak=0;q4Streak=0;}
@@ -385,6 +388,22 @@ function buildRelicContext(relics) {
     getWrappedRadius() { return has("s2") ? 2 : 1; },
     hasGrandFinale() { return has("s4"); },
     hasStoneSplitter() { return has("o3"); },
+    hasAfterburn()    { return has("s5"); },
+
+    // Composure (q5) — flat-move multiplier
+    getComposureCount() { return composureCount; },
+    getComposureMultiplier() { return composureCount>0?Math.min(1+composureCount*0.5,4.0):1.0; },
+    onFlatMove() {
+      if(!has("q5"))return composureCount;
+      composureCount=Math.min(composureCount+1,6);
+      return composureCount;
+    },
+    onComposureBreak() {
+      if(!has("q5")||composureCount===0){composureCount=0;return{applied:false,multiplier:1.0};}
+      const mult=Math.min(1+composureCount*0.5,4.0);
+      composureCount=0;
+      return{applied:true,multiplier:mult};
+    },
 
     // o1 Frost Breaker — spawn striped above each cleared frosted cell
     onFrostedCleared(positions, currentGrid) {
@@ -413,6 +432,24 @@ function makeSeedRNG(str) {
 
 const SEED_CHARS="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 const generateSeed=()=>Array.from({length:6},()=>SEED_CHARS[Math.floor(Math.random()*SEED_CHARS.length)]).join("");
+
+// Returns "YYYY-MM-DD" in local time — shared key for daily seed and daily record.
+function getTodayStr(){
+  const d=new Date();
+  return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`;
+}
+// Derives a deterministic 6-char seed from today's date — identical for all players on the same day.
+const generateDailySeed=()=>{
+  const rng=makeSeedRNG(`daily_${getTodayStr()}`);
+  return Array.from({length:6},()=>SEED_CHARS[Math.floor(rng()*SEED_CHARS.length)]).join("");
+};
+// Returns "valid" | "short" | "long" | "invalid_chars"
+function validateSeedInput(str){
+  if(!str||str.length<6)return"short";
+  if(str.length>6)return"long";
+  const valid=new Set(SEED_CHARS);
+  return[...str].some(c=>!valid.has(c))?"invalid_chars":"valid";
+}
 
 function seededShuffle(arr,rngFn){
   const a=[...arr];
@@ -477,7 +514,7 @@ function makeCell(type,special=SPECIAL.NONE){return{type,special,id:newUid()};}
 function makeStoneCell(){return{type:null,special:SPECIAL.NONE,id:newUid(),stone:true};}
 function makeChocolateCell(){return{type:null,special:SPECIAL.NONE,id:newUid(),chocolate:true};}
 // A cell can participate in a match only if it has a candy type and is not blocked
-const canMatch=cell=>cell&&cell.type!=null&&!cell.stone&&!cell.chocolate&&cell.frosted!==2;
+const canMatch=cell=>cell&&cell.type!=null&&!cell.stone&&!cell.chocolate&&cell.frosted!==2&&cell.special!==SPECIAL.COLOR_BOMB;
 
 function wouldMatch(grid,r,c,type){
   return(c>=2&&grid[r][c-1]?.type===type&&grid[r][c-2]?.type===type)||
@@ -528,7 +565,7 @@ function processMatches(grid,aR1=-1,aC1=-1,aR2=-1,aC2=-1,typeNorm=null,relicCtx=
     if(run.cells.length>=5){
       run.cells.forEach(([r,c])=>inLong.add(`${r},${c}`));
       const[kr,kc]=pickAnchor(run.cells);
-      specialCreations.set(`${kr},${kc}`,{type:run.type,special:SPECIAL.COLOR_BOMB});
+      specialCreations.set(`${kr},${kc}`,{type:null,special:SPECIAL.COLOR_BOMB});
     }
   });
   const runCount=new Map();
@@ -575,6 +612,7 @@ function processMatches(grid,aR1=-1,aC1=-1,aR2=-1,aC2=-1,typeNorm=null,relicCtx=
 function expandWithSpecials(grid,matched,relicCtx=null){
   const expanded=new Set(matched),activated=new Set();
   let frontier=[...matched];
+  let afterburnPool=null; // snapshotted on first Afterburn stripe fire
   while(frontier.length){
     const next=[];
     for(const key of frontier){
@@ -605,6 +643,27 @@ function expandWithSpecials(grid,matched,relicCtx=null){
           [r-1,r+1].forEach(ar=>{if(ar>=0&&ar<ROWS)for(let ac=0;ac<COLS;ac++){const k=`${ar},${ac}`;if(grid[ar][ac]&&!expanded.has(k)){expanded.add(k);next.push(k);}}});
         }else{
           [c-1,c+1].forEach(ac=>{if(ac>=0&&ac<COLS)for(let ar=0;ar<ROWS;ar++){const k=`${ar},${ac}`;if(grid[ar][ac]&&!expanded.has(k)){expanded.add(k);next.push(k);}}});
+        }
+      }
+      // Afterburn (s5) — chain-fire striped candies
+      if(relicCtx?.hasAfterburn?.()&&(cell.special===SPECIAL.STRIPED_H||cell.special===SPECIAL.STRIPED_V)){
+        // Snapshot all other board stripes not already in the cascade
+        if(afterburnPool===null){
+          afterburnPool=[];
+          for(let sr=0;sr<ROWS;sr++)for(let sc=0;sc<COLS;sc++){
+            const cand=grid[sr][sc],ck=`${sr},${sc}`;
+            if(cand&&(cand.special===SPECIAL.STRIPED_H||cand.special===SPECIAL.STRIPED_V)&&!expanded.has(ck))
+              afterburnPool.push(ck);
+          }
+        }
+        // Remove the stripe that just fired from the pool
+        const pIdx=afterburnPool.indexOf(key);
+        if(pIdx!==-1)afterburnPool.splice(pIdx,1);
+        // Roll 30% to chain-trigger a random stripe from the pool
+        if(afterburnPool.length>0&&Math.random()<0.3){
+          const trigIdx=Math.floor(Math.random()*afterburnPool.length);
+          const trigKey=afterburnPool.splice(trigIdx,1)[0];
+          if(!expanded.has(trigKey)){expanded.add(trigKey);next.push(trigKey);}
         }
       }
     }
@@ -693,9 +752,9 @@ function applyBoonToGrid(grid,boon,numColors){
     const specs=[SPECIAL.STRIPED_H,SPECIAL.WRAPPED,SPECIAL.STRIPED_V,SPECIAL.COLOR_BOMB];
     const cells=[];for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(g[r][c]&&!g[r][c].stone&&!g[r][c].chocolate&&g[r][c].special===SPECIAL.NONE)cells.push([r,c]);
     cells.sort(()=>Math.random()-0.5);
-    cells.slice(0,2).forEach(([r,c],i)=>{g[r][c]={...g[r][c],special:specs[i%4]};});
+    cells.slice(0,2).forEach(([r,c],i)=>{const sp=specs[i%4];g[r][c]={...g[r][c],type:sp===SPECIAL.COLOR_BOMB?null:g[r][c].type,special:sp};});
   }
-  if(boon.id==="b4"){const cr=Math.floor(ROWS/2),cc=Math.floor(COLS/2);if(g[cr][cc]&&!g[cr][cc].stone)g[cr][cc]={...g[cr][cc],special:SPECIAL.COLOR_BOMB};}
+  if(boon.id==="b4"){const cr=Math.floor(ROWS/2),cc=Math.floor(COLS/2);if(g[cr][cc]&&!g[cr][cc].stone)g[cr][cc]={...g[cr][cc],type:null,special:SPECIAL.COLOR_BOMB};}
   if(boon.id==="b5"){for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++)if(g[r][c]?.frosted===2)g[r][c]={...g[r][c],frosted:1};}
   return g;
 }
@@ -929,7 +988,10 @@ function ChocolateCell({size}){
 }
 
 function CottageGem({typeIndex, season, size=38, special=null, selected=false}){
-  const c=getCandy(typeIndex,season);
+  // Colour bombs are colourless — render as white/pearl regardless of stored typeIndex
+  const c=special===SPECIAL.COLOR_BOMB
+    ?{base:"#f0f0f0",deep:"#b8b8b8",light:"#ffffff"}
+    :getCandy(typeIndex,season);
   const sk=special&&special!==SPECIAL.NONE?
     (special===SPECIAL.STRIPED_H?"hStripe":special===SPECIAL.STRIPED_V?"vStripe":special===SPECIAL.WRAPPED?"wrapped":special===SPECIAL.COLOR_BOMB?"bomb":null):null;
 
@@ -1133,11 +1195,26 @@ function Title({text,ch,size=30}){
 // ═══════════════════════════════════════════════════════════════════
 // HOME SCREEN
 // ═══════════════════════════════════════════════════════════════════
-function HomeScreen({onNewRun,onResume,hasActiveRun,highScores,runSeed,enabledCats,onToggleCat}){
+function HomeScreen({onStartRun,onResume,hasActiveRun,activeRunMode,highScores,runSeed,enabledCats,onToggleCat,dailyRecord}){
   const[showScores,setShowScores]=useState(false);
   const[showSettings,setShowSettings]=useState(false);
+  const[showSeed,setShowSeed]=useState(false);
+  const[seedInput,setSeedInput]=useState("");
   const ch=getCh("spring");
   const allCats=Object.entries(RELIC_CATEGORIES);
+
+  // Daily button logic
+  const isDailyActive=hasActiveRun&&activeRunMode==="daily";
+  const isDailyDone=!!dailyRecord?.completed;
+  const today=getTodayStr();
+  const[,mm,dd]=today.split("-");
+  const dateLabel=`${parseInt(mm)}/${parseInt(dd)}`;
+
+  // Normal resume — only non-daily active runs
+  const showNormalResume=hasActiveRun&&activeRunMode!=="daily";
+
+  const seedValid=validateSeedInput(seedInput)==="valid";
+
   return(
     <div style={{fontFamily:FF_SANS,background:ch.pageWash,minHeight:"100vh",
       display:"flex",flexDirection:"column",alignItems:"center",padding:"0 20px 40px",
@@ -1145,29 +1222,102 @@ function HomeScreen({onNewRun,onResume,hasActiveRun,highScores,runSeed,enabledCa
       <SeasonDots ch={ch}/>
       <style>{`@import url('https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,600;1,9..144,400;1,9..144,600&family=Nunito:wght@400;600;700&display=swap');`}</style>
 
-      <div style={{height:64}}/>
+      <div style={{height:52}}/>
       <div style={{fontSize:36,marginBottom:4}}>✿</div>
       <Title text="Minzy Match" ch={ch} size={36}/>
-      <div style={{fontSize:12,color:ch.inkSoft,letterSpacing:3,textTransform:"uppercase",marginBottom:52,fontFamily:FF_SANS,fontWeight:600}}>A Cosy Roguelike</div>
+      <div style={{fontSize:12,color:ch.inkSoft,letterSpacing:3,textTransform:"uppercase",marginBottom:36,fontFamily:FF_SANS,fontWeight:600}}>A Cosy Roguelike</div>
 
-      <div style={{display:"flex",flexDirection:"column",gap:12,width:260,position:"relative",zIndex:1}}>
-        <Btn onClick={onNewRun} style={{background:`linear-gradient(135deg,${ch.accent},#c9879b)`,color:"white",boxShadow:`0 6px 20px ${ch.accent}55`,fontSize:16,padding:"16px 24px"}}>
+      <div style={{display:"flex",flexDirection:"column",gap:10,width:260,position:"relative",zIndex:1}}>
+
+        {/* New Run */}
+        <Btn onClick={()=>onStartRun({mode:"normal"})} style={{background:`linear-gradient(135deg,${ch.accent},#c9879b)`,color:"white",boxShadow:`0 6px 20px ${ch.accent}55`,fontSize:16,padding:"16px 24px"}}>
           ✿ New Run
         </Btn>
-        <Btn onClick={hasActiveRun?onResume:undefined} style={{
-          background:hasActiveRun?ch.pillBg:"rgba(252,248,238,0.4)",
-          color:hasActiveRun?ch.ink:`${ch.ink}55`,
-          border:`1.5px solid ${hasActiveRun?ch.frame:"#dac9aa88"}`,
-          cursor:hasActiveRun?"pointer":"default",
+
+        {/* Daily Challenge */}
+        {isDailyActive?(
+          <Btn onClick={onResume} style={{background:"#e8f0e0",border:"1.5px solid #b8d4a0",color:"#3a5828",fontSize:13}}>
+            📅 Daily · {dateLabel} · In Progress ▶
+          </Btn>
+        ):isDailyDone?(
+          <div style={{padding:"12px 24px",borderRadius:999,border:"1.5px solid #b8d4a088",background:"rgba(232,240,224,0.4)",
+            color:"#3a582888",fontSize:13,fontFamily:FF_SANS,fontWeight:700,textAlign:"center",letterSpacing:0.3}}>
+            📅 Daily · {dateLabel} · {dailyRecord.outcome==="win"?"✓ Cleared":"✗ Failed"} · {dailyRecord.score?.toLocaleString()}
+          </div>
+        ):(
+          <Btn onClick={()=>onStartRun({mode:"daily"})} style={{background:"#e8f0e0",border:"1.5px solid #b8d4a0",color:"#3a5828",fontSize:13}}>
+            📅 Daily Challenge · {dateLabel}
+          </Btn>
+        )}
+
+        {/* Resume (non-daily) */}
+        <Btn onClick={showNormalResume?onResume:undefined} style={{
+          background:showNormalResume?ch.pillBg:"rgba(252,248,238,0.4)",
+          color:showNormalResume?ch.ink:`${ch.ink}55`,
+          border:`1.5px solid ${showNormalResume?ch.frame:"#dac9aa88"}`,
+          cursor:showNormalResume?"pointer":"default",
+          fontSize:13,
         }}>
-          {hasActiveRun?`▶ Resume · ${runSeed}`:"▶ No Active Run"}
+          {showNormalResume?`▶ Resume · ${runSeed}`:"▶ No Active Run"}
         </Btn>
+
         <Btn onClick={()=>setShowScores(true)} style={{background:ch.pillBg,border:`1.5px solid ${ch.frame}`,color:ch.ink}}>🏆 High Scores</Btn>
+
+        {/* Enter Seed toggle */}
+        <Btn onClick={()=>{setShowSeed(s=>!s);setSeedInput("");}} style={{
+          background:showSeed?ch.frame:ch.pillBg,
+          color:showSeed?"#fcf8ee":ch.ink,
+          border:`1.5px solid ${ch.frame}`,
+        }}>🔑 Enter Seed</Btn>
+
         <Btn onClick={()=>setShowSettings(s=>!s)} style={{background:ch.pillBg,border:`1.5px solid ${ch.frame}`,color:ch.ink}}>⚙️ Draft Settings</Btn>
       </div>
 
+      {/* Seed input panel */}
+      {showSeed&&(
+        <div style={{width:260,marginTop:8,position:"relative",zIndex:1}}>
+          <Card ch={ch} style={{padding:"14px 16px"}}>
+            <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:ch.inkSoft,marginBottom:10,textTransform:"uppercase",textAlign:"center"}}>Play a Seeded Run</div>
+            <div style={{display:"flex",gap:8,marginBottom:8}}>
+              <input
+                value={seedInput}
+                onChange={e=>{
+                  const v=e.target.value.toUpperCase().replace(/[^ABCDEFGHJKLMNPQRSTUVWXYZ23456789]/g,"").slice(0,6);
+                  setSeedInput(v);
+                }}
+                placeholder="A1B2C3"
+                maxLength={6}
+                style={{
+                  flex:1,fontFamily:"monospace",fontSize:17,letterSpacing:4,
+                  padding:"8px 10px",borderRadius:10,
+                  border:`1.5px solid ${seedValid?ch.accent:ch.frame}`,
+                  background:ch.pillBg,color:ch.ink,outline:"none",
+                  textTransform:"uppercase",textAlign:"center",
+                }}
+              />
+              <Btn
+                onClick={seedValid?()=>{onStartRun({mode:"seeded",seed:seedInput});setShowSeed(false);setSeedInput("");}:undefined}
+                style={{
+                  padding:"8px 14px",minWidth:48,fontSize:15,
+                  background:seedValid?`linear-gradient(135deg,${ch.accent},#c9879b)`:"#e0d8cc",
+                  color:seedValid?"white":"#b0a090",
+                  cursor:seedValid?"pointer":"default",
+                }}
+              >▶</Btn>
+            </div>
+            <div style={{fontSize:10,color:ch.inkSoft,textAlign:"center"}}>
+              {seedInput.length===0?"6 characters · A–Z (no I/O) and 2–9":
+               seedValid?"✓ Valid seed — ready to play!":
+               seedInput.length<6?`${6-seedInput.length} more character${6-seedInput.length!==1?"s":""}…`:
+               "Contains invalid characters"}
+            </div>
+          </Card>
+        </div>
+      )}
+
+      {/* Draft settings panel */}
       {showSettings&&(
-        <div style={{width:260,marginTop:14,position:"relative",zIndex:1}}>
+        <div style={{width:260,marginTop:8,position:"relative",zIndex:1}}>
           <Card ch={ch} style={{padding:"14px 16px"}}>
             <div style={{fontSize:11,fontWeight:700,letterSpacing:1.5,color:ch.inkSoft,marginBottom:10,textTransform:"uppercase",textAlign:"center"}}>Relic Categories</div>
             {allCats.map(([key,cat])=>{
@@ -1191,6 +1341,7 @@ function HomeScreen({onNewRun,onResume,hasActiveRun,highScores,runSeed,enabledCa
         Match 3+ · Collect relics · Beat the Hollow
       </div>
 
+      {/* High Scores modal */}
       {showScores&&(
         <div style={{position:"fixed",inset:0,background:"rgba(90,74,58,0.55)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:200}} onClick={()=>setShowScores(false)}>
           <Card ch={ch} style={{minWidth:280,maxWidth:340,padding:24}} onClick={e=>e.stopPropagation()}>
@@ -1199,7 +1350,11 @@ function HomeScreen({onNewRun,onResume,hasActiveRun,highScores,runSeed,enabledCa
             {highScores.map((s,i)=>(
               <div key={i} style={{display:"flex",justifyContent:"space-between",alignItems:"center",padding:"8px 0",borderBottom:`1px solid ${ch.frame}55`,fontSize:13,color:ch.ink}}>
                 <span style={{color:ch.inkSoft,width:24}}>#{i+1}</span>
-                <span style={{flex:1,fontWeight:700,fontFamily:"monospace",letterSpacing:1}}>{s.seed}</span>
+                <span style={{flex:1,display:"flex",alignItems:"center",gap:4}}>
+                  {s.mode==="daily"&&<span style={{fontSize:9,background:"#e8f0e0",color:"#3a5828",padding:"1px 5px",borderRadius:99,fontWeight:700,flexShrink:0}}>📅</span>}
+                  {s.mode==="seeded"&&<span style={{fontSize:9,background:"#e0e8f8",color:"#304860",padding:"1px 5px",borderRadius:99,fontWeight:700,flexShrink:0}}>🔑</span>}
+                  <span style={{fontWeight:700,fontFamily:"monospace",letterSpacing:1}}>{s.seed}</span>
+                </span>
                 <span style={{fontSize:11,marginRight:8,color:s.outcome==="win"?"#6a994f":"#cd6a5e",fontWeight:700}}>{s.outcome==="win"?"WIN":"L"+s.levelsCleared}</span>
                 <span style={{fontWeight:800,color:ch.starStroke}}>{s.totalScore.toLocaleString()}</span>
               </div>
@@ -1246,7 +1401,11 @@ function RunMapScreen({run,onPlay,onHome}){
       <div style={{width:"100%",maxWidth:maxW,display:"flex",justifyContent:"space-between",alignItems:"center",marginBottom:12,position:"relative",zIndex:1}}>
         <button onClick={onHome} style={{background:"transparent",border:"none",color:ch.inkSoft,fontSize:13,cursor:"pointer",fontFamily:FF_SANS,fontWeight:600}}>← Home</button>
         <Title text="Your Run" ch={ch} size={20}/>
-        <div style={{fontSize:12,fontFamily:"monospace",background:ch.pillBg,border:`1px solid ${ch.frame}`,padding:"3px 10px",borderRadius:20,letterSpacing:2,color:ch.ink}}>{run.seed}</div>
+        <div style={{display:"flex",alignItems:"center",gap:5}}>
+          {run.mode==="daily"&&<div style={{fontSize:10,background:"#e8f0e0",border:"1px solid #b8d4a0",color:"#3a5828",padding:"2px 8px",borderRadius:20,fontWeight:700,fontFamily:FF_SANS}}>📅 Daily</div>}
+          {run.mode==="seeded"&&<div style={{fontSize:10,background:"#e0e8f8",border:"1px solid #a0b8d8",color:"#304860",padding:"2px 8px",borderRadius:20,fontWeight:700,fontFamily:FF_SANS}}>🔑 Seeded</div>}
+          <div style={{fontSize:12,fontFamily:"monospace",background:ch.pillBg,border:`1px solid ${ch.frame}`,padding:"3px 10px",borderRadius:20,letterSpacing:2,color:ch.ink}}>{run.seed}</div>
+        </div>
       </div>
 
       {/* Score summary */}
@@ -1517,6 +1676,7 @@ function GameScreen({levelDef,run,onComplete}){
   const[phase,   setPhase]  =useState("play");
   const[quotaProgress,setQuotaProgress]=useState(0);
   const[cascadeProgress,setCascadeProgress]=useState(0);
+  const[composureCount,setComposureCount]=useState(0);
 
   const gridRef =useRef(grid);     gridRef.current=grid;
   const scoreRef=useRef(score);    scoreRef.current=score;
@@ -1629,11 +1789,15 @@ function GameScreen({levelDef,run,onComplete}){
         if(nearest){const h=SPECIAL_REGISTRY[nearest.cell.special];if(h)h.activate(g,nearest.r,nearest.c,nearest.cell.type).forEach(k=>seed2.add(k));g[nearest.r][nearest.c]={...nearest.cell,special:SPECIAL.NONE};relicEvents.push("🎆 Grand Finale!");}
       }
       const expanded=expandWithSpecials(g,seed2,ctx);
-      const gain=expanded.size*tileValue(numColors);
+      let gain=expanded.size*tileValue(numColors);
       let newQuota=quotaRef.current;
       if(objective.type==="quota")expanded.forEach(k=>{const[r,c]=k.split(",").map(Number);if(g[r]?.[c]?.type===objective.colorIndex)newQuota++;});
       const next=clone(g);expanded.forEach(k=>{const[r,c]=k.split(",").map(Number);next[r][c]=null;});
       const filled=gravityFill(next,numColors);
+      // Composure (q5) — CB fires a special, always breaks composure
+      const{applied:cbComp,multiplier:cbMult}=ctx.onComposureBreak();
+      if(cbComp){gain=Math.round(gain*cbMult);setComposureCount(0);}
+      else setComposureCount(0);
       setGrid(g);await delay(120);setPopping(expanded);await delay(380);
       setPopping(new Set());setGrid(filled);
       const newScore=scoreRef.current+gain;setScore(newScore);
@@ -1651,6 +1815,9 @@ function GameScreen({levelDef,run,onComplete}){
     // ── Normal cascade ────────────────────────────────────────────
     setGrid(g);
     const steps=computeCascade(g,r1,c1,r2,c2,numColors,typeNorm,ctx);
+    // Composure (q5) — detect whether this move was flat (single step, no pre-existing special fired)
+    const anySpecialActivated=steps.length>0&&steps[0].matched&&[...steps[0].matched].some(k=>{const[sr,sc]=k.split(",").map(Number);return steps[0].gridBefore?.[sr]?.[sc]?.special!==SPECIAL.NONE;});
+    const isFlatMove=steps.length===1&&!anySpecialActivated;
     let totalGain=0,newQuota=quotaRef.current,newCasc=cascadeRef.current;
     const allRuns=[],allMatched=new Set(),allRelicEvents=[];
     let butterCount=0,totalJelly=0,frostedClearedPos=[];
@@ -1696,6 +1863,15 @@ function GameScreen({levelDef,run,onComplete}){
       setGrid(postSpread);
     }
 
+    // Composure (q5) — charge on flat move, cash-in on cascade/special
+    if(isFlatMove){
+      ctx.onFlatMove();
+      setComposureCount(ctx.getComposureCount());
+    } else {
+      const{applied:cascComp,multiplier:cascMult}=ctx.onComposureBreak();
+      if(cascComp){totalGain=Math.round(totalGain*cascMult);}
+      setComposureCount(0);
+    }
     if([...allRelicEvents,...oRelicEvents].length>0)showRelicMsg([...new Set([...allRelicEvents,...oRelicEvents])]);
     if(objective.type==="quota")setQuotaProgress(newQuota);
     const newScore=scoreRef.current+totalGain;setScore(newScore);
@@ -1815,14 +1991,30 @@ function GameScreen({levelDef,run,onComplete}){
       {/* Objective */}
       <div style={{width:BW,position:"relative",zIndex:1}}>{renderObjective()}</div>
 
-      {/* Moves */}
-      <div style={{
-        display:"inline-flex",alignItems:"center",gap:8,marginBottom:8,
-        background:ch.pillBg,border:`1.5px solid ${ch.pillBorder}`,
-        borderRadius:999,padding:"4px 14px",position:"relative",zIndex:1,
-      }}>
-        <span style={{fontSize:11,color:ch.inkSoft,fontWeight:600,letterSpacing:0.5}}>MOVES</span>
-        <span style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:18,color:moves<=5?"#cd6a5e":ch.ink}}>{moves}</span>
+      {/* Moves + Composure row */}
+      <div style={{display:"flex",alignItems:"center",gap:8,marginBottom:8,position:"relative",zIndex:1}}>
+        <div style={{
+          display:"inline-flex",alignItems:"center",gap:8,
+          background:ch.pillBg,border:`1.5px solid ${ch.pillBorder}`,
+          borderRadius:999,padding:"4px 14px",
+        }}>
+          <span style={{fontSize:11,color:ch.inkSoft,fontWeight:600,letterSpacing:0.5}}>MOVES</span>
+          <span style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:18,color:moves<=5?"#cd6a5e":ch.ink}}>{moves}</span>
+        </div>
+        {ctx.ids.has("q5")&&(
+          <div style={{
+            display:"inline-flex",alignItems:"center",gap:6,
+            background:composureCount>0?"#e8f4e8":ch.pillBg,
+            border:`1.5px solid ${composureCount>0?"#7cba7c":ch.pillBorder}`,
+            borderRadius:999,padding:"4px 12px",transition:"background 0.2s,border-color 0.2s",
+          }}>
+            <span style={{fontSize:13}}>🧘</span>
+            <span style={{fontSize:11,color:ch.inkSoft,fontWeight:600,letterSpacing:0.5}}>COMPOSURE</span>
+            <span style={{fontFamily:FF_SERIF,fontWeight:600,fontSize:16,color:composureCount>0?"#4a8c4a":ch.ink}}>
+              {composureCount>0?`×${(1+composureCount*0.5).toFixed(1)}`:"–"}
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Board */}
@@ -1952,6 +2144,7 @@ const LS = {
   SCREEN:  "minzy_screen",
   SCORES:  "minzy_highscores",
   CATS:    "minzy_enabledcats",
+  DAILY:   "minzy_daily",
 };
 function lsLoad(key, fallback) {
   try { const v=localStorage.getItem(key); return v!=null?JSON.parse(v):fallback; }
@@ -1979,6 +2172,11 @@ function App(){
     const saved=lsLoad(LS.CATS,null);
     return saved?new Set(saved):new Set(Object.keys(RELIC_CATEGORIES));
   });
+  const[dailyRecord,setDailyRecord]=useState(()=>{
+    const saved=lsLoad(LS.DAILY,null);
+    // Discard records from a previous day — daily resets at midnight.
+    return saved?.date===getTodayStr()?saved:null;
+  });
   const pendingResult=useRef(null);
   const enabledCatsRef=useRef(enabledCats); enabledCatsRef.current=enabledCats;
 
@@ -1988,14 +2186,16 @@ function App(){
   useEffect(()=>{ lsSave(LS.SCREEN, screen);        },[screen]);
   useEffect(()=>{ lsSave(LS.SCORES, highScores);    },[highScores]);
   useEffect(()=>{ lsSave(LS.CATS,   [...enabledCats]); },[enabledCats]);
+  useEffect(()=>{ lsSave(LS.DAILY,  dailyRecord);   },[dailyRecord]);
 
   const handleToggleCat=useCallback(cat=>{
     setEnabledCats(prev=>{const next=new Set(prev);if(next.has(cat))next.delete(cat);else next.add(cat);return next;});
   },[]);
 
-  const startNewRun=useCallback(()=>{
-    const seed=generateSeed();
-    setRun({seed,levelResults:[],relics:[],pendingBoon:null});
+  const startRun=useCallback((options={})=>{
+    const{mode="normal",seed:customSeed}=options;
+    const seed=customSeed??(mode==="daily"?generateDailySeed():generateSeed());
+    setRun({seed,mode,levelResults:[],relics:[],pendingBoon:null});
     setScreen("map");
   },[]);
 
@@ -2027,7 +2227,9 @@ function App(){
         setRun(prev=>{
           if(!prev)return prev;
           const total=prev.levelResults.reduce((s,r)=>s+r.score,0);
-          setHighScores(hs=>[...hs,{seed:prev.seed,totalScore:total,levelsCleared:prev.levelResults.filter(r=>r.passed).length,relicsCollected:prev.relics.length,outcome}].sort((a,b)=>b.totalScore-a.totalScore).slice(0,10));
+          const runMode=prev.mode??"normal";
+          setHighScores(hs=>[...hs,{seed:prev.seed,mode:runMode,totalScore:total,levelsCleared:prev.levelResults.filter(r=>r.passed).length,relicsCollected:prev.relics.length,outcome}].sort((a,b)=>b.totalScore-a.totalScore).slice(0,10));
+          if(runMode==="daily")setDailyRecord({date:getTodayStr(),completed:true,outcome,score:total});
           return prev;
         });
         setScreen("complete");
@@ -2053,7 +2255,7 @@ function App(){
 
   const hasActiveRun=!!run&&run.levelResults.length<LEVEL_DEFS.length&&!(run.levelResults.length>0&&!run.levelResults[run.levelResults.length-1]?.passed);
 
-  if(screen==="home") return <HomeScreen onNewRun={startNewRun} onResume={handleResume} hasActiveRun={hasActiveRun} highScores={highScores} runSeed={run?.seed} enabledCats={enabledCats} onToggleCat={handleToggleCat}/>;
+  if(screen==="home") return <HomeScreen onStartRun={startRun} onResume={handleResume} hasActiveRun={hasActiveRun} activeRunMode={run?.mode} highScores={highScores} runSeed={run?.seed} enabledCats={enabledCats} onToggleCat={handleToggleCat} dailyRecord={dailyRecord}/>;
   if(screen==="map"&&run) return <RunMapScreen run={run} onPlay={handlePlay} onHome={handleHome}/>;
   if(screen==="game"&&run){
     const levelIdx=run.levelResults.length,def=LEVEL_DEFS[levelIdx];
@@ -2065,7 +2267,7 @@ function App(){
     return <DraftScreen options={pr.draftOptions} onPick={handleDraftPick} onSkip={handleDraftSkip} levelResult={pr} isBossComplete={pr.isBossComplete} bonusPick={pr.bonusPick}/>;
   }
   if(screen==="complete"&&run) return <RunCompleteScreen run={run} onHome={()=>{setRun(null);handleHome();}}/>;
-  return <HomeScreen onNewRun={startNewRun} onResume={handleResume} hasActiveRun={false} highScores={highScores} enabledCats={enabledCats} onToggleCat={handleToggleCat}/>;
+  return <HomeScreen onStartRun={startRun} onResume={handleResume} hasActiveRun={false} activeRunMode={null} highScores={highScores} enabledCats={enabledCats} onToggleCat={handleToggleCat} dailyRecord={dailyRecord}/>;
 }
 
 // Error boundary — catches render errors and shows them instead of a blank screen.
